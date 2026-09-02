@@ -15,6 +15,49 @@ app.use(express.urlencoded({ extended: true }));
 // Mise à disposition des fichiers statiques publics (inscription, scripts, etc.)
 app.use(express.static(path.join(__dirname, "public")));
 
+// Phase 3.0 : Middleware d'authentification Basic Auth
+async function basicAuth(req, res, next) {
+	// Extraction de l'en-tête Authorization
+	const authHeader = req.headers.authorization;
+
+	// Si l'en-tête est manquant ou n'est pas de type Basic
+	if (!authHeader || !authHeader.startsWith("Basic ")) {
+		res.setHeader("WWW-Authenticate", 'Basic realm="Batcave"');
+		return res
+			.status(401)
+			.json({ error: "Authentification requise pour entrer dans la Batcave." });
+	}
+
+	// Décodage de la chaîne en Base64
+	const base64Credentials = authHeader.split(" ")[1];
+	const decoded = Buffer.from(base64Credentials, "base64").toString("utf-8");
+	const [username, password] = decoded.split(":");
+
+	// Vérification de la présence des identifiants décodés
+	if (!username || !password) {
+		res.setHeader("WWW-Authenticate", 'Basic realm="Batcave"');
+		return res.status(401).json({ error: "Identifiants Basic Auth incomplets." });
+	}
+
+	// Recherche du compte utilisateur en base SQLite
+	const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
+	if (!user) {
+		res.setHeader("WWW-Authenticate", 'Basic realm="Batcave"');
+		return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
+	}
+
+	// Comparaison sécurisée du mot de passe fourni avec le hachage stocké
+	const isPasswordValid = await bcrypt.compare(password, user.password);
+	if (!isPasswordValid) {
+		res.setHeader("WWW-Authenticate", 'Basic realm="Batcave"');
+		return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
+	}
+
+	// Stockage des données de l'utilisateur authentifié dans l'objet requête
+	req.user = user;
+	return next();
+}
+
 // Phase 2.0 & 2.1 : Route d'enregistrement d'un nouveau justicier
 app.post("/register", async (req, res) => {
 	// Nettoyage de l'identifiant pour éviter les espaces superflus au début ou à la fin
@@ -61,6 +104,41 @@ app.post("/register", async (req, res) => {
 			.status(500)
 			.json({ error: "Erreur interne du serveur lors de l'enregistrement." });
 	}
+});
+
+// Phase 3.0 : Route protégée servant l'interface du Bat-Ordinateur
+app.get("/bat-computer", basicAuth, (req, res) => {
+	res.sendFile(path.join(__dirname, "private", "bat-computer.html"));
+});
+
+// Phase 3.0 : Route protégée renvoyant l'arsenal secret de Batman en JSON
+app.get("/api/secrets", basicAuth, (req, res) => {
+	const secrets = [
+		{ name: "Batarang", desc: "Arme de jet emblématique et rétractable.", icon: "fa-shuriken" },
+		{
+			name: "Grappin",
+			desc: "Propulseur d'escalade à câble ultra-résistant.",
+			icon: "fa-anchor",
+		},
+		{ name: "Batmobile", desc: "Blindé furtif équipé de turboréacteurs.", icon: "fa-car" },
+		{
+			name: "Gel explosif",
+			desc: "Aérosol de détonation commandé à distance.",
+			icon: "fa-bomb",
+		},
+		{
+			name: "Cryptographe",
+			desc: "Décodeur portable de terminaux et fréquences radio.",
+			icon: "fa-walkie-talkie",
+		},
+		{
+			name: "Vision détective",
+			desc: "Visière à analyse thermique et balistique avancée.",
+			icon: "fa-glasses",
+		},
+	];
+
+	res.json(secrets);
 });
 
 // Démarrage du serveur web de la Batcave

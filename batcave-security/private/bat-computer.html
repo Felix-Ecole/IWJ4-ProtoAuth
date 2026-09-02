@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Batcave - Bat-Ordinateur</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+	</head>
+	<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+		<!-- Barre de navigation superieure -->
+		<header class="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-10">
+			<div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+				<div class="flex items-center gap-3">
+					<i class="fa-solid fa-terminal text-amber-400 text-lg"></i>
+					<span class="font-bold text-sm tracking-wide text-zinc-100 uppercase">
+						Terminal Bat-Ordinateur
+					</span>
+				</div>
+				<div class="flex items-center gap-4 text-xs">
+					<span
+						id="userBadge"
+						class="px-2.5 py-1 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+						Session sécurisée
+					</span>
+					<a href="/register.html" class="text-zinc-400 hover:text-amber-400 transition">
+						<i class="fa-solid fa-user-plus mr-1"></i>
+						Registre
+					</a>
+				</div>
+			</div>
+		</header>
+
+		<!-- Zone principale de commande -->
+		<main class="max-w-6xl mx-auto px-4 py-8">
+			<!-- En-tete d'accueil dynamique -->
+			<div
+				class="bg-gradient-to-r from-zinc-900 via-zinc-900 to-amber-950/20 border border-zinc-800 rounded-lg p-6 mb-8">
+				<h1 id="welcomeTitle" class="text-2xl font-bold text-zinc-100">
+					Accès autorisé au Bat-Ordinateur
+				</h1>
+				<p class="text-sm text-zinc-400 mt-1">
+					Système de défense et de gestion tactique de Gotham City.
+				</p>
+			</div>
+
+			<!-- Section de l'arsenal de Wayne Enterprises -->
+			<section class="mb-10">
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-base font-semibold text-amber-400 uppercase tracking-wider">
+						Arsenal & Gadgets Tactiques
+					</h2>
+					<span class="text-xs text-zinc-500">Données confidentielles</span>
+				</div>
+				<div id="arsenalGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					<div
+						class="p-4 bg-zinc-900 border border-zinc-800 rounded text-center text-xs text-zinc-500">
+						Chargement des équipements...
+					</div>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>
