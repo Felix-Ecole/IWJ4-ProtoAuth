@@ -8,7 +8,25 @@ Projet pédagogique dédié à l'étude et à l'implémentation progressive de d
 
 | TP | Module | Thématique principale | Branche de référence | Statut |
 | :--- | :--- | :--- | :--- | :--- |
-| **TP1** | `batcave-security` | Basic Auth, Bcrypt, persistance SQLite, RBAC & audit | `tp1-securite-batcave` | En cours |
+| **TP1** | `batcave-security` | Basic Auth, Bcrypt, persistance SQLite, RBAC & audit | `tp1-securite-batcave` | Terminé (`v1.0.0`) |
+
+---
+
+## Démarrage Rapide
+
+```bash
+# Se positionner sur le module TP1
+cd batcave-security
+
+# Installer les dépendances
+npm install
+
+# Démarrer le serveur
+npm start
+```
+Le serveur écoute par défaut sur [http://localhost:3000](http://localhost:3000).
+
+Pour les détails d'exécution, de recettes et les protocoles de tests (cURL, Postman, navigateur), consultez le [Guide de Développement](DEVELOPMENT.md).
 
 ---
 
@@ -16,7 +34,7 @@ Projet pédagogique dédié à l'étude et à l'implémentation progressive de d
 
 ### Gestion des branches
 - **Branche principale** : `master` (code stable et versions taguées).
-- **Branches thématiques** : `tp<numero>-<theme>` (ex. : `tp1-securite-batcave`). Chaque TP est isolé sur sa branche dédiée puis synchronisé de façon linéaire avec `master`.
+- **Branches thématiques** : `tp<numero>-<theme>` (ex. : `tp1-securite-batcave`). Chaque TP est développé de façon isolée puis synchronisé de manière linéaire avec `master`.
 
 ### Versionnement et releases
 Le projet respecte les spécifications [Semantic Versioning 2.0.0](https://semver.org/).
@@ -26,12 +44,13 @@ Le projet respecte les spécifications [Semantic Versioning 2.0.0](https://semve
 ### Documentation attendue
 Chaque module / TP comprend :
 1. Ce `README.md` global à la racine du dépôt.
-2. Un `README.md` dédié dans le sous-dossier du TP détaillant le fonctionnement technique, les endpoints et les consignes de lancement.
-3. Le suivi des modifications consigné dans `CHANGELOG.md`.
+2. Un `README.md` dédié dans le sous-dossier du TP détaillant le fonctionnement technique, les endpoints et l'architecture fonctionnelle.
+3. Le suivi des modifications consigné dans [`CHANGELOG.md`](./CHANGELOG.md).
+4. Le guide de test et de recette dans [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ---
 
 ## Prérequis et environnement d'exécution
-- **Node.js** : v20+ (recommandé v24)
+- **Node.js** : v20+ (testé sur v24)
 - **Gestionnaire de paquets** : npm
 - **Base de données embarquée** : SQLite via `better-sqlite3`
