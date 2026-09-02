@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Batcave - Registre des Justiciers</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+	</head>
+	<body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center p-4">
+		<main class="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-lg p-6 shadow-xl">
+			<header class="text-center mb-6">
+				<h1 class="text-xl font-bold text-amber-400">Batcave Security</h1>
+				<p class="text-xs text-zinc-400 mt-1">Enregistrement d'un nouvel agent</p>
+			</header>
+
+			<div id="alertBox" class="hidden mb-4"></div>
+
+			<form id="registerForm" class="space-y-4">
+				<div>
+					<label for="username" class="block text-xs font-medium text-zinc-300 mb-1">
+						Identifiant
+					</label>
+					<input
+						type="text"
+						id="username"
+						name="username"
+						required
+						placeholder="ex: Nightwing"
+						class="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-400" />
+				</div>
+
+				<div>
+					<label for="password" class="block text-xs font-medium text-zinc-300 mb-1">
+						Mot de passe (8 car. min)
+					</label>
+					<input
+						type="password"
+						id="password"
+						name="password"
+						required
+						minlength="8"
+						placeholder="••••••••"
+						class="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-400" />
+				</div>
+
+				<button
+					type="submit"
+					class="w-full py-2 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded text-sm transition">
+					Créer l'accès
+				</button>
+			</form>
+
+			<footer class="mt-6 pt-4 border-t border-zinc-800 text-center text-xs">
+				<a href="/bat-computer" class="text-amber-400 hover:underline">
+					Accéder au Bat-Ordinateur &rarr;
+				</a>
+			</footer>
+		</main>
+
+		<script src="/register.js"></script>
+	</body>
+</html>
