@@ -58,7 +58,13 @@ Pour modifier les droits d'un compte existant ou vérifier les mots de passe hac
 
 ## 3. Procédures de Validation et Recette (TP1)
 
-La validation formelle du TP1 s'effectue selon trois méthodes distinctes :
+La validation du TP1 peut être exécutée de manière entièrement automatisée ou manuellement selon trois méthodes distinctes :
+
+### Validation Automatisée
+Un banc d'essais complet testant l'intégralité des 19 critères est disponible à la racine :
+```bash
+node tests/TP1.js
+```
 
 ### Méthode 1 : Navigateur Web (Dialogue natif)
 1. Ouvrir `http://localhost:3000/register.html` pour créer un premier compte (qui devient automatiquement `ADMIN`, ex. : `bruce` / `WaynePass123!`).

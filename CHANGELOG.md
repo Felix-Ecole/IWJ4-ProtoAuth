@@ -20,3 +20,4 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 - Protection anti force brute (blocage temporaire de 30s après 3 échecs).
 - Route `/logout` de purge de session.
 - Guide complet de développement et de recette (`DEVELOPMENT.md`).
+- Banc d'essais automatisé complet (`tests/TP1.js`).
