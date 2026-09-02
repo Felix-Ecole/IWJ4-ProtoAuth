@@ -22,6 +22,7 @@ form.addEventListener("submit", async (e) => {
 	// Extraction et nettoyage des valeurs saisies
 	const username = document.getElementById("username").value.trim();
 	const password = document.getElementById("password").value;
+	const role = document.getElementById("role")?.value || "JUSTICIER";
 
 	// Vérification préalable de la longueur du mot de passe côté client
 	if (password.length < 8) {
@@ -30,11 +31,11 @@ form.addEventListener("submit", async (e) => {
 	}
 
 	try {
-		// Envoi de la requête d'inscription au serveur Express
+		// Envoi de la requête d'inscription au serveur Express avec le rôle
 		const res = await fetch("/register", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ username, password }),
+			body: JSON.stringify({ username, password, role }),
 		});
 
 		// Lecture du corps de la réponse JSON

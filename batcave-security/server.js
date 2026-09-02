@@ -121,11 +121,6 @@ app.post("/register", async (req, res) => {
 	const password = req.body.password;
 	const requestedRole = req.body.role?.toUpperCase();
 
-	// Attribution du rôle : ADMIN si expressément demandé lors du premier compte ou défaut JUSTICIER
-	const role = ["ADMIN", "ASSISTANT", "JUSTICIER"].includes(requestedRole)
-		? requestedRole
-		: "JUSTICIER";
-
 	// Vérification de la présence obligatoire des deux champs
 	if (!username || !password) {
 		return res.status(400).json({ error: "Identifiant et mot de passe requis." });
@@ -145,6 +140,17 @@ app.post("/register", async (req, res) => {
 		return res.status(409).json({ error: "Ce nom d'utilisateur est déjà utilisé." });
 	}
 
+	// Attribution du rôle :
+	// 1. Le premier utilisateur créé devient automatiquement ADMIN
+	// 2. Sinon, application du rôle demandé si valide, ou JUSTICIER par défaut
+	const usersCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
+	let role = "JUSTICIER";
+	if (usersCount === 0) {
+		role = "ADMIN";
+	} else if (["ADMIN", "ASSISTANT", "JUSTICIER"].includes(requestedRole)) {
+		role = requestedRole;
+	}
+
 	try {
 		// Hachage du mot de passe avec Bcrypt (facteur de coût standard de 10)
 		const hashedPassword = await bcrypt.hash(password, 10);
@@ -156,9 +162,10 @@ app.post("/register", async (req, res) => {
 		insertStmt.run(username, hashedPassword, role);
 
 		// Confirmation de la création du compte
-		return res
-			.status(201)
-			.json({ message: "Justicier enregistré avec succès dans la Batcave." });
+		return res.status(201).json({
+			message: `Justicier enregistré avec succès dans la Batcave (Rôle : ${role}).`,
+			role,
+		});
 	} catch (err) {
 		// Gestion des erreurs internes du serveur
 		console.error("Erreur lors de l'enregistrement :", err);

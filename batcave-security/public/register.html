@@ -43,6 +43,23 @@
 						class="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-400" />
 				</div>
 
+				<div>
+					<label for="role" class="block text-xs font-medium text-zinc-300 mb-1">
+						Accréditation / Rôle
+					</label>
+					<select
+						id="role"
+						name="role"
+						class="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded text-sm text-zinc-100 focus:outline-none focus:border-amber-400">
+						<option value="JUSTICIER">Justicier (Accès standard)</option>
+						<option value="ASSISTANT">Assistant (Accès restreint)</option>
+						<option value="ADMIN">Administrateur (Accès total)</option>
+					</select>
+					<p class="text-[11px] text-zinc-500 mt-1">
+						Note : Le tout premier compte créé est automatiquement promu ADMIN.
+					</p>
+				</div>
+
 				<button
 					type="submit"
 					class="w-full py-2 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold rounded text-sm transition">
