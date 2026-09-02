@@ -32,6 +32,13 @@
 						<i class="fa-solid fa-key mr-1"></i>
 						Identifiants
 					</button>
+					<button
+						id="logoutBtn"
+						class="text-zinc-400 hover:text-red-400 transition"
+						title="Fermer la session">
+						<i class="fa-solid fa-arrow-right-from-bracket mr-1"></i>
+						Déconnexion
+					</button>
 					<a href="/register.html" class="text-zinc-400 hover:text-amber-400 transition">
 						<i class="fa-solid fa-user-plus mr-1"></i>
 						Registre
@@ -130,6 +137,40 @@
 					</div>
 				</div>
 			</section>
+
+			<!-- Section Bonus : Registre d'audit (visible uniquement si rôle ADMIN) -->
+			<section
+				id="adminSection"
+				class="hidden bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex items-center gap-2">
+						<i class="fa-solid fa-lock text-amber-400"></i>
+						<h3 class="text-sm font-bold text-zinc-100 uppercase tracking-wide">
+							Journaux d'Audit Système (ADMIN)
+						</h3>
+					</div>
+					<span class="text-xs text-zinc-500">Table logs (SQLite)</span>
+				</div>
+				<div id="auditLogsTable" class="overflow-x-auto text-xs">
+					<table class="w-full text-left border-collapse">
+						<thead>
+							<tr class="border-b border-zinc-800 text-zinc-400">
+								<th class="py-2 px-3">Date</th>
+								<th class="py-2 px-3">IP</th>
+								<th class="py-2 px-3">Identifiant</th>
+								<th class="py-2 px-3">Résultat</th>
+							</tr>
+						</thead>
+						<tbody id="logsTbody">
+							<tr>
+								<td colspan="4" class="text-center py-4 text-zinc-500">
+									Chargement des logs...
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
 		</main>
 
 		<!-- Script de gestion client (appels protégés avec injection de Basic Auth) -->
@@ -155,6 +196,12 @@
 				location.reload();
 			});
 
+			// Bouton de déconnexion (Phase Bonus)
+			document.getElementById("logoutBtn").addEventListener("click", () => {
+				sessionStorage.removeItem("batcave_auth_header");
+				window.location.href = "/logout";
+			});
+
 			// Chargement des informations du justicier connecté (Phase 3.1)
 			async function loadUserProfile() {
 				const authHeader = getBasicAuthHeader();
@@ -171,6 +218,12 @@
 							`Bienvenue, Justicier ${user.username}`;
 						document.getElementById("userBadge").textContent =
 							`Agent : ${user.username} [${user.role}]`;
+
+						// Si rôle ADMIN, charger les logs d'audit (Phase Bonus)
+						if (user.role === "ADMIN") {
+							document.getElementById("adminSection").classList.remove("hidden");
+							loadAdminLogs();
+						}
 					} else {
 						document.getElementById("welcomeTitle").textContent =
 							"Accès refusé - Identifiants invalides";
@@ -221,7 +274,7 @@
 				}
 			}
 
-			// Chargement et affichage des rapports
+			// Chargement et affichage des rapports (Phase 3.1)
 			async function loadReports() {
 				const authHeader = getBasicAuthHeader();
 				const list = document.getElementById("reportsList");
@@ -256,12 +309,57 @@
 								<span class="text-[10px] text-zinc-500">${new Date(rep.created_at).toLocaleString("fr-FR")}</span>
 							</div>
 							<p class="text-xs text-zinc-300 leading-normal">${rep.content}</p>
+							${rep.username ? `<p class="text-[10px] text-zinc-500 mt-1">Auteur : ${rep.username}</p>` : ""}
 						</div>
 					`,
 						)
 						.join("");
 				} catch (err) {
 					console.error("Erreur rapports :", err);
+				}
+			}
+
+			// Chargement des logs d'audit réservés à l'ADMIN (Phase Bonus)
+			async function loadAdminLogs() {
+				const authHeader = getBasicAuthHeader();
+				const tbody = document.getElementById("logsTbody");
+				if (!authHeader) return;
+
+				try {
+					const res = await fetch("/api/admin/logs", {
+						headers: { Authorization: authHeader },
+					});
+
+					if (!res.ok) return;
+
+					const logs = await res.json();
+					if (logs.length === 0) {
+						tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-zinc-500">Aucun log enregistré.</td></tr>`;
+						return;
+					}
+
+					tbody.innerHTML = logs
+						.map(
+							(l) => `
+						<tr class="border-b border-zinc-800/50">
+							<td class="py-2 px-3 text-zinc-400">${new Date(l.timestamp).toLocaleString("fr-FR")}</td>
+							<td class="py-2 px-3 font-mono text-[11px] text-zinc-300">${l.ip}</td>
+							<td class="py-2 px-3 text-zinc-200">${l.username || "—"}</td>
+							<td class="py-2 px-3">
+								<span class="px-2 py-0.5 rounded text-[10px] ${
+									l.success
+										? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+										: "bg-red-950 text-red-300 border border-red-800"
+								}">
+									${l.success ? "SUCCÈS" : "ÉCHEC"}
+								</span>
+							</td>
+						</tr>
+					`,
+						)
+						.join("");
+				} catch (err) {
+					console.error("Erreur logs :", err);
 				}
 			}
 

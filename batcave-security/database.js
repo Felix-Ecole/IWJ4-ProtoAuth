@@ -31,5 +31,16 @@ db.exec(`
 	);
 `);
 
+// Création de la table des journaux d'audit de sécurité (Phase Bonus)
+db.exec(`
+	CREATE TABLE IF NOT EXISTS logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		ip TEXT NOT NULL,
+		username TEXT,
+		success INTEGER NOT NULL
+	);
+`);
+
 // Export de l'instance de la base de données
 module.exports = db;
