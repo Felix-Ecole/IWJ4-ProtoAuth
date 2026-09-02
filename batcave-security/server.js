@@ -111,6 +111,15 @@ app.get("/bat-computer", basicAuth, (req, res) => {
 	res.sendFile(path.join(__dirname, "private", "bat-computer.html"));
 });
 
+// Phase 3.1 : Route protégée renvoyant l'identité du justicier authentifié
+app.get("/api/me", basicAuth, (req, res) => {
+	res.json({
+		id: req.user.id,
+		username: req.user.username,
+		role: req.user.role,
+	});
+});
+
 // Phase 3.0 : Route protégée renvoyant l'arsenal secret de Batman en JSON
 app.get("/api/secrets", basicAuth, (req, res) => {
 	const secrets = [
@@ -139,6 +148,34 @@ app.get("/api/secrets", basicAuth, (req, res) => {
 	];
 
 	res.json(secrets);
+});
+
+// Phase 3.1 : Enregistrement d'un rapport de mission lié au justicier
+app.post("/api/reports", basicAuth, (req, res) => {
+	const title = req.body.title?.trim();
+	const content = req.body.content?.trim();
+
+	// Vérification de la présence des informations du rapport
+	if (!title || !content) {
+		return res.status(400).json({ error: "Titre et contenu du rapport obligatoires." });
+	}
+
+	// Insertion du rapport avec liaison de clé étrangère vers users.id
+	const insertStmt = db.prepare("INSERT INTO reports (user_id, title, content) VALUES (?, ?, ?)");
+	const result = insertStmt.run(req.user.id, title, content);
+
+	return res.status(201).json({
+		message: "Rapport de mission consigné avec succès.",
+		reportId: result.lastInsertRowid,
+	});
+});
+
+// Phase 3.1 : Consultation de l'historique des rapports du justicier
+app.get("/api/reports", basicAuth, (req, res) => {
+	const reports = db
+		.prepare("SELECT * FROM reports WHERE user_id = ? ORDER BY created_at DESC")
+		.all(req.user.id);
+	res.json(reports);
 });
 
 // Démarrage du serveur web de la Batcave
