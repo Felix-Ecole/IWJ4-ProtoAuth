@@ -16,13 +16,18 @@ const path = require("path");
 
 // Réinitialisation préalable des tables de la base de données SQLite
 try {
-	const db = require(path.join(__dirname, "..", "batcave-security", "database.js"));
+	let db;
+	try {
+		db = require(path.join(__dirname, "..", "batcave-security", "config", "database.js"));
+	} catch {
+		db = require(path.join(__dirname, "..", "batcave-security", "database.js"));
+	}
 	db.prepare("DELETE FROM logs").run();
 	db.prepare("DELETE FROM reports").run();
 	db.prepare("DELETE FROM users").run();
-	console.log(">> Base de donnees SQLite nettoyee et prete pour les tests.\n");
+	console.log(">> Base de données SQLite nettoyée et prête pour les tests.\n");
 } catch (e) {
-	console.log(">> Attention : Impossible de reinitialiser directement SQLite via Node.\n");
+	console.log(">> Attention : Impossible de réinitialiser directement SQLite via Node.\n");
 }
 
 function run(cmd) {

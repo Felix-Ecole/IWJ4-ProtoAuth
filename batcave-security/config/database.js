@@ -3,7 +3,7 @@ const Database = require("better-sqlite3");
 const path = require("path");
 
 // Initialisation de la connexion à la base de données SQLite
-const dbPath = path.join(__dirname, "database.db");
+const dbPath = path.join(__dirname, "..", "database.db");
 const db = new Database(dbPath);
 
 // Activation des clés étrangères dans SQLite
