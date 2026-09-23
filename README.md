@@ -9,22 +9,33 @@ Projet pédagogique dédié à l'étude et à l'implémentation progressive de d
 | TP | Module | Thématique principale | Branche de référence | Statut |
 | :--- | :--- | :--- | :--- | :--- |
 | **TP1** | `batcave-security` | Basic Auth, Bcrypt, persistance SQLite, RBAC & audit | `tp1-securite-batcave` | Terminé (`v1.0.0`) |
+| **TP2** | `batcave-security` | Badges de session (cookie signé `bat_identity`), SQLite Store, Anti-Hijacking & Registre d'audit | `tp2-systeme-badges` | Terminé (`v2.0.0`) |
 
 ---
 
 ## Démarrage Rapide
 
 ```bash
-# Se positionner sur le module TP1
+# Se positionner sur le module
 cd batcave-security
 
-# Installer les dépendances
+# Copier le fichier d'environnement et installer les dépendances
+cp .env.example .env
 npm install
 
 # Démarrer le serveur
 npm start
 ```
 Le serveur écoute par défaut sur [http://localhost:3000](http://localhost:3000).
+
+### Lancement des bancs d'essais automatisés
+```bash
+# Exécuter le banc d'essais du TP2 (13 scénarios validés)
+node tests/TP2.js
+
+# Exécuter le banc d'essais du TP1
+node tests/TP1.js
+```
 
 Pour les détails d'exécution, de recettes et les protocoles de tests (cURL, Postman, navigateur), consultez le [Guide de Développement](DEVELOPMENT.md).
 

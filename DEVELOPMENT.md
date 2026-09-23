@@ -95,9 +95,47 @@ La 4ᵉ tentative doit retourner un code `429 Too Many Requests` avec l'indicati
 
 ---
 
-## 4. Conventions Git et Livrables
+## 4. Procédures de Validation et Recette (TP2)
+
+La validation du TP2 s'appuie sur le système de badges éphémères (cookies de session signés `bat_identity`).
+
+### Validation Automatisée
+Un banc de test automatisé validant l'intégralité des 13 scénarios requis et les 3 bonus est exécutable à la racine :
+```bash
+# S'assurer que le serveur est démarré (cd batcave-security && npm start)
+node tests/TP2.js
+```
+
+### Méthode 1 : Parcours Navigateur Web
+1. Ouvrir `http://localhost:3000/auth/login`.
+2. Soumettre les identifiants d'un agent préalablement créé.
+3. Vérifier dans les DevTools (onglet Application / Stockage -> Cookies) la présence du cookie `bat_identity` avec les drapeaux `HttpOnly` et `SameSite=Strict`.
+4. Accéder au Bat-Ordinateur (`http://localhost:3000/bat-computer`).
+5. Cliquer sur "Déconnexion" (`/auth/logout`) et constater la suppression immédiate du cookie et le retour au formulaire de login.
+6. Si connecté avec un compte `ADMIN` (ex. `bruce`), cliquer sur "Audit Connexions" pour accéder à la console de surveillance `/admin/audit`.
+
+### Méthode 2 : Ligne de commande cURL avec Cookie-Jar
+```bash
+# 1. Connexion et sauvegarde du cookie
+curl -i -c cookies.txt -A "Mozilla/5.0" -X POST http://localhost:3000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"bruce","password":"WaynePassword123!"}'
+
+# 2. Accès à la console protégée avec le cookie
+curl -i -b cookies.txt -A "Mozilla/5.0" http://localhost:3000/bat-computer
+
+# 3. Test Anti-Hijacking : Rejeu avec un autre User-Agent -> 403 Forbidden
+curl -i -b cookies.txt -A "Joker-Browser/1.0" http://localhost:3000/api/me
+
+# 4. Déconnexion propre
+curl -i -b cookies.txt -c cookies.txt http://localhost:3000/auth/logout
+```
+
+---
+
+## 5. Conventions Git et Livrables
 
 - **Branche principale** : `master`
-- **Branches de travail** : `tp<numero>-<theme>`
-- **Releases** : Tags annotés SemVer (`v1.0.0`)
+- **Branches de travail** : `tp<numero>-<theme>` (ex. : `tp2-systeme-badges`)
+- **Releases** : Tags annotés SemVer (`v1.0.0`, `v2.0.0`)
 - **Documentation** : Mise à jour conjointe du `README.md` racine, du `README.md` du TP et du `CHANGELOG.md`.

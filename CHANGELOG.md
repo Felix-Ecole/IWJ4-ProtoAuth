@@ -6,6 +6,29 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 
 ---
 
+## [2.0.0] - 2026-09-23
+
+### Ajouté
+- Architecture modulaire complète (`config/`, `middlewares/`, `routes/`, `views/`).
+- Externalisation des secrets et de la configuration via `dotenv` et `.env.example`.
+- Système d'authentification par badge de session avec cookie signé `bat_identity`.
+- Paramétrage renforcé de sécurité sur les cookies (`httpOnly: true`, `sameSite: "strict"`, durée 30 minutes).
+- Session Store persistant sur SQLite via `better-sqlite3-session-store` (Bonus 1).
+- Régénération systématique du session ID (`req.session.regenerate()`) contre la fixation de session.
+- Middleware `isAuthenticated` protégeant la console Bat-Ordinateur et les routes privées.
+- Déconnexion propre (`GET /auth/logout`) avec destruction de session serveur et purge du cookie.
+- Vigile anti-usurpation d'identité et détection de vol de session par empreinte client IP + User-Agent (Bonus 2).
+- Registre relationnel `connexions_audit` traçant les événements `LOGIN`, `LOGOUT` et `FRAUD` (Bonus 3).
+- Console d'audit interactive réservée au rôle `ADMIN` avec tableau de bord temps réel, filtrage et indicateurs (Bonus 3).
+- Banc d'essais automatisé complet validant 13 scénarios techniques (`tests/TP2.js`).
+
+### Modifié
+- Refactorisation de `server.js` en point d'entrée allégé et modulaire.
+- Migration de `bat-computer.html` vers le dossier sécurisé `views/`.
+- Isolation de la base de données et des schémas relationnels dans `config/database.js`.
+
+---
+
 ## [1.0.0] - 2026-09-02
 
 ### Ajouté
