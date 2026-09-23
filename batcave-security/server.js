@@ -41,6 +41,10 @@ app.use(
 	})
 );
 
+// Middleware anti-usurpation d'identité et détection de vol de session (TP2 - Bonus 2)
+const { antiHijack } = require("./middlewares/antiHijack");
+app.use(antiHijack);
+
 // Mise à disposition des ressources statiques publiques (scripts, CSS)
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -50,6 +54,7 @@ const batcomputerRouter = require("./routes/batcomputer");
 const registerRouter = require("./routes/register");
 const secretsRouter = require("./routes/secrets");
 const reportsRouter = require("./routes/reports");
+const adminRouter = require("./routes/admin");
 
 // Montage des routeurs applicatifs
 app.use("/auth", authRouter);
@@ -57,6 +62,7 @@ app.use("/", batcomputerRouter);
 app.use("/", registerRouter);
 app.use("/api", secretsRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/admin", adminRouter);
 
 // Racine : redirection intelligente selon l'état de la session
 app.get("/", (req, res) => {

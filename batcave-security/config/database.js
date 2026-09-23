@@ -42,5 +42,17 @@ db.exec(`
 	);
 `);
 
+// Table du registre d'audit des connexions et détection de fraude (TP2 - Bonus 3)
+db.exec(`
+	CREATE TABLE IF NOT EXISTS connexions_audit (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT,
+		action TEXT NOT NULL,
+		ip_address TEXT NOT NULL,
+		user_agent TEXT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+`);
+
 // Export de l'instance de la base de données
 module.exports = db;
