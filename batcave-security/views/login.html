@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Batcave - Identification Requise</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+	</head>
+	<body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center p-4">
+		<div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl p-8 shadow-2xl relative overflow-hidden">
+			<!-- Indicateur lumineux d'état du terminal -->
+			<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600"></div>
+
+			<!-- En-tête Batcave -->
+			<div class="text-center mb-8">
+				<div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-zinc-800 border border-zinc-700 text-amber-400 text-2xl mb-3 shadow-inner">
+					<i class="fa-solid fa-id-badge"></i>
+				</div>
+				<h1 class="text-xl font-bold uppercase tracking-wider text-zinc-100">
+					Contrôle d'Accès Batcave
+				</h1>
+				<p class="text-xs text-zinc-400 mt-1">
+					Veuillez présenter votre badge de session numérique.
+				</p>
+			</div>
+
+			<!-- Zone de notification d'erreur dynamique -->
+			<div id="errorBox" class="hidden mb-6 p-3 rounded-lg bg-red-950/60 border border-red-800/80 text-red-200 text-xs flex items-center gap-2">
+				<i class="fa-solid fa-triangle-exclamation text-red-400"></i>
+				<span id="errorMessage">Identifiant ou mot de passe incorrect.</span>
+			</div>
+
+			<!-- Formulaire de connexion -->
+			<form id="loginForm" action="/auth/login" method="POST" class="space-y-5">
+				<div>
+					<label for="username" class="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
+						Identifiant Agent
+					</label>
+					<div class="relative">
+						<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500 text-sm">
+							<i class="fa-solid fa-user-secret"></i>
+						</span>
+						<input
+							type="text"
+							id="username"
+							name="username"
+							required
+							autocomplete="username"
+							placeholder="Ex: bruce, alfred, robin"
+							class="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+					</div>
+				</div>
+
+				<div>
+					<label for="password" class="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
+						Clé de Sécurité
+					</label>
+					<div class="relative">
+						<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500 text-sm">
+							<i class="fa-solid fa-lock"></i>
+						</span>
+						<input
+							type="password"
+							id="password"
+							name="password"
+							required
+							autocomplete="current-password"
+							placeholder="••••••••••••"
+							class="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+					</div>
+				</div>
+
+				<button
+					type="submit"
+					id="submitBtn"
+					class="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm rounded-lg transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10">
+					<i class="fa-solid fa-key"></i>
+					<span>Valider l'Accréditation</span>
+				</button>
+			</form>
+
+			<!-- Pied de page et lien inscription -->
+			<div class="mt-8 pt-4 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+				<span>Nouvel agent ?</span>
+				<a href="/register.html" class="text-amber-400 hover:text-amber-300 underline font-medium transition">
+					Demander une accréditation
+				</a>
+			</div>
+		</div>
+
+		<script>
+			// Affichage des erreurs transmises par l'URL ou soumission AJAX
+			const params = new URLSearchParams(window.location.search);
+			if (params.has("error")) {
+				const errorBox = document.getElementById("errorBox");
+				const errorMessage = document.getElementById("errorMessage");
+				errorMessage.textContent = decodeURIComponent(params.get("error"));
+				errorBox.classList.remove("hidden");
+			}
+
+			// Interception de soumission pour retour visuel immédiat
+			const form = document.getElementById("loginForm");
+			form.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const submitBtn = document.getElementById("submitBtn");
+				const errorBox = document.getElementById("errorBox");
+				const errorMessage = document.getElementById("errorMessage");
+
+				submitBtn.disabled = true;
+				submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Vérification du badge...</span>';
+
+				const formData = new FormData(form);
+				const payload = Object.fromEntries(formData.entries());
+
+				try {
+					const response = await fetch("/auth/login", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"Accept": "application/json"
+						},
+						body: JSON.stringify(payload)
+					});
+
+					const result = await response.json();
+					if (response.ok && result.redirect) {
+						window.location.href = result.redirect;
+					} else {
+						errorMessage.textContent = result.error || "Échec de connexion.";
+						errorBox.classList.remove("hidden");
+						submitBtn.disabled = false;
+						submitBtn.innerHTML = '<i class="fa-solid fa-key"></i><span>Valider l\'Accréditation</span>';
+					}
+				} catch (err) {
+					// En cas de problème réseau, soumission classique du formulaire
+					form.submit();
+				}
+			});
+		</script>
+	</body>
+</html>

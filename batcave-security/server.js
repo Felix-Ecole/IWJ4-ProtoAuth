@@ -46,6 +46,21 @@ app.use(
 // Mise à disposition des fichiers statiques publics (inscription, scripts, etc.)
 app.use(express.static(path.join(__dirname, "public")));
 
+// Routeurs modulaires du système de badges (TP2)
+const authRouter = require("./routes/auth");
+const batcomputerRouter = require("./routes/batcomputer");
+
+app.use("/auth", authRouter);
+app.use("/", batcomputerRouter);
+
+// Racine : redirection intelligente selon l'état du badge de session
+app.get("/", (req, res) => {
+	if (req.session && req.session.user) {
+		return res.redirect("/bat-computer");
+	}
+	return res.redirect("/auth/login");
+});
+
 // Phase Bonus : Suivi des tentatives d'authentification pour protection contre le brute-force
 // Structure : username -> { count: number, lockedUntil: number }
 const loginAttempts = new Map();
@@ -206,11 +221,7 @@ app.post("/register", async (req, res) => {
 	}
 });
 
-// Phase 3.0 : Route protégée servant l'interface du Bat-Ordinateur
-// Accessible aux rôles ADMIN, ASSISTANT et JUSTICIER
-app.get("/bat-computer", basicAuth, (req, res) => {
-	res.sendFile(path.join(__dirname, "private", "bat-computer.html"));
-});
+
 
 // Phase 3.1 : Route protégée renvoyant l'identité du justicier authentifié
 app.get("/api/me", basicAuth, (req, res) => {
