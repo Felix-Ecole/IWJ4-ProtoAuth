@@ -1,5 +1,10 @@
+// Chargement des variables d'environnement dès le début
+require("dotenv").config();
+
 // Import des dépendances nécessaires
 const express = require("express");
+const session = require("express-session");
+const SqliteStore = require("better-sqlite3-session-store")(session);
 const path = require("path");
 const bcrypt = require("bcrypt");
 const db = require("./config/database");
@@ -11,6 +16,32 @@ const PORT = process.env.PORT || 3000;
 // Configuration des middlewares pour traiter les données entrantes (JSON et formulaires)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Configuration du Session Store persistant SQLite (TP2 - Bonus 1)
+const sessionStore = new SqliteStore({
+	client: db,
+	expired: {
+		clear: true,
+		intervalMs: 900000, // Nettoyage automatique toutes les 15 minutes
+	},
+});
+
+// Middleware de session et sécurisation du badge de la Batcave (TP2)
+app.use(
+	session({
+		name: "bat_identity",
+		secret: process.env.SESSION_SECRET || "batcave_super_secret_session_key_2026_top_secret_bruce_wayne",
+		store: sessionStore,
+		resave: false,
+		saveUninitialized: false,
+		cookie: {
+			httpOnly: true, // Protection contre les failles XSS
+			sameSite: "strict", // Protection contre les requêtes intersites (CSRF)
+			maxAge: 1800000, // Expiration automatique au bout de 30 minutes d'inactivité
+			secure: false, // Environnement de développement local HTTP
+		},
+	})
+);
 
 // Mise à disposition des fichiers statiques publics (inscription, scripts, etc.)
 app.use(express.static(path.join(__dirname, "public")));
