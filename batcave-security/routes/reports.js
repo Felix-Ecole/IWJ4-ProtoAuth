@@ -10,7 +10,7 @@ router.use(isAuthenticated);
 
 // POST /api/reports - Enregistrement d'un rapport de mission
 router.post("/", (req, res) => {
-	const user = req.session.user;
+	const user = req.user || req.session?.user;
 	const { title, content } = req.body || {};
 
 	if (!title || !title.trim() || !content || !content.trim()) {
@@ -18,9 +18,7 @@ router.post("/", (req, res) => {
 	}
 
 	try {
-		const stmt = db.prepare(
-			"INSERT INTO reports (user_id, title, content) VALUES (?, ?, ?)"
-		);
+		const stmt = db.prepare("INSERT INTO reports (user_id, title, content) VALUES (?, ?, ?)");
 		const info = stmt.run(user.id, title.trim(), content.trim());
 
 		return res.status(201).json({
@@ -36,7 +34,7 @@ router.post("/", (req, res) => {
 
 // GET /api/reports - Consultation de l'historique des rapports
 router.get("/", (req, res) => {
-	const user = req.session.user;
+	const user = req.user || req.session?.user;
 
 	try {
 		let query;
@@ -64,7 +62,10 @@ router.get("/", (req, res) => {
 		}
 
 		return res.json({
-			scope: user.role === "ADMIN" ? "Tous les rapports (Supervision Admin)" : "Mes rapports de mission",
+			scope:
+				user.role === "ADMIN"
+					? "Tous les rapports (Supervision Admin)"
+					: "Mes rapports de mission",
 			reports: reports || [],
 		});
 	} catch (err) {

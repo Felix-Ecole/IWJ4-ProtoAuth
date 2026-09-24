@@ -1,7 +1,7 @@
-// Middleware de contrôle d'accès basé sur les rôles (RBAC)
+// Middleware de contrôle d'accès basé sur les rôles (RBAC) pour JWT
 function checkRole(...allowedRoles) {
 	return (req, res, next) => {
-		const user = req.session ? req.session.user : req.user;
+		const user = req.user || req.session?.user;
 
 		if (!user || !allowedRoles.includes(user.role)) {
 			return res.status(403).json({

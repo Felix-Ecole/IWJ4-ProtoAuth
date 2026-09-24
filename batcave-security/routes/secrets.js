@@ -8,7 +8,7 @@ const router = express.Router();
 
 // GET /api/me - Profil de l'agent authentifié
 router.get("/me", isAuthenticated, (req, res) => {
-	const user = req.session.user;
+	const user = req.user || req.session?.user;
 	res.json({
 		id: user.id,
 		username: user.username,
@@ -27,13 +27,15 @@ router.get("/secrets", isAuthenticated, (req, res) => {
 		},
 		{
 			nom: "Batarang",
-			description: "Projectiles équilibrés à haute précision avec pointes en alliage de titane.",
+			description:
+				"Projectiles équilibrés à haute précision avec pointes en alliage de titane.",
 			statut: "Opérationnel",
 			quantite: 48,
 		},
 		{
 			nom: "Batwing",
-			description: "Appareil aérien furtif supersonique pour déploiement aéroportuaire rapide.",
+			description:
+				"Appareil aérien furtif supersonique pour déploiement aéroportuaire rapide.",
 			statut: "En maintenance",
 			quantite: 1,
 		},

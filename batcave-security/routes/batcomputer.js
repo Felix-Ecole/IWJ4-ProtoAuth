@@ -8,7 +8,7 @@ const router = express.Router();
 
 // GET /bat-computer - Console Batcomputer sécurisée
 router.get("/bat-computer", isAuthenticated, (req, res) => {
-	const user = req.session.user;
+	const user = req.user || req.session?.user;
 	const viewPath = path.join(__dirname, "..", "views", "bat-computer.html");
 
 	fs.readFile(viewPath, "utf-8", (err, html) => {

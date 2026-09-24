@@ -493,4 +493,5 @@ tmbootpicker.efi
 !.gitignore
 !.gitsubmodules
 !.github
-
+/robots/
+/.shadow_git/

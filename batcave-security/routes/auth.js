@@ -16,7 +16,7 @@ function auditLog(username, action, req) {
 		const ip = req.ip || req.socket.remoteAddress || "127.0.0.1";
 		const userAgent = req.headers["user-agent"] || "inconnu";
 		const stmt = db.prepare(
-			"INSERT INTO connexions_audit (username, action, ip_address, user_agent) VALUES (?, ?, ?, ?)"
+			"INSERT INTO connexions_audit (username, action, ip_address, user_agent) VALUES (?, ?, ?, ?)",
 		);
 		stmt.run(username || "anonyme", action, ip, userAgent);
 	} catch (e) {
@@ -57,7 +57,11 @@ router.post("/login", async (req, res) => {
 		if (req.accepts("json") && (req.xhr || req.headers["content-type"]?.includes("json"))) {
 			return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
 		}
-		return res.status(401).redirect("/auth/login?error=" + encodeURIComponent("Identifiant ou mot de passe incorrect"));
+		return res
+			.status(401)
+			.redirect(
+				"/auth/login?error=" + encodeURIComponent("Identifiant ou mot de passe incorrect"),
+			);
 	}
 
 	// Vérification du mot de passe avec Bcrypt
@@ -67,7 +71,11 @@ router.post("/login", async (req, res) => {
 		if (req.accepts("json") && (req.xhr || req.headers["content-type"]?.includes("json"))) {
 			return res.status(401).json({ error: "Identifiant ou mot de passe incorrect." });
 		}
-		return res.status(401).redirect("/auth/login?error=" + encodeURIComponent("Identifiant ou mot de passe incorrect"));
+		return res
+			.status(401)
+			.redirect(
+				"/auth/login?error=" + encodeURIComponent("Identifiant ou mot de passe incorrect"),
+			);
 	}
 
 	// Génération de l'accessToken JWT (durée courte de 15 secondes pour les démonstrations de rafraîchissement)
@@ -78,7 +86,7 @@ router.post("/login", async (req, res) => {
 			role: user.role,
 		},
 		JWT_SECRET,
-		{ expiresIn: "15s" }
+		{ expiresIn: "15s" },
 	);
 
 	// Génération du refreshToken opaque (chaîne cryptographique aléatoire de 64 octets)
@@ -90,7 +98,7 @@ router.post("/login", async (req, res) => {
 	// Enregistrement du refreshToken dans la table SQLite
 	try {
 		const stmt = db.prepare(
-			"INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)"
+			"INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)",
 		);
 		stmt.run(user.id, refreshToken, expiresAt);
 	} catch (err) {
@@ -132,11 +140,127 @@ router.post("/login", async (req, res) => {
 	return res.redirect("/bat-computer");
 });
 
-// GET /auth/logout - Déconnexion initiale
-router.get("/logout", (req, res) => {
+// POST /refresh (et /api/auth/refresh) - Renouvellement transparent de l'accessToken JWT
+const handleRefresh = async (req, res) => {
+	const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+	if (!refreshToken) {
+		return res.status(401).json({
+			error: "Jeton de rafraîchissement (refreshToken) manquant.",
+			code: "NO_REFRESH_TOKEN",
+		});
+	}
+
+	// Recherche du refreshToken dans la table SQLite
+	const record = db.prepare("SELECT * FROM refresh_tokens WHERE token = ?").get(refreshToken);
+
+	if (!record) {
+		res.clearCookie("token");
+		res.clearCookie("refreshToken");
+		return res.status(401).json({
+			error: "Jeton de rafraîchissement invalide ou révoqué.",
+			code: "INVALID_REFRESH_TOKEN",
+		});
+	}
+
+	// Vérification de la date d'expiration
+	const now = new Date();
+	const expiresAt = new Date(record.expires_at);
+
+	if (expiresAt <= now) {
+		// Purge du jeton expiré en base de données
+		try {
+			db.prepare("DELETE FROM refresh_tokens WHERE token = ?").run(refreshToken);
+		} catch (err) {
+			console.error("Erreur suppression token expiré :", err);
+		}
+
+		res.clearCookie("token");
+		res.clearCookie("refreshToken");
+		return res.status(401).json({
+			error: "Jeton de rafraîchissement expiré. Reconnexion requise.",
+			code: "REFRESH_TOKEN_EXPIRED",
+		});
+	}
+
+	// Récupération des informations de l'agent associé
+	const user = db
+		.prepare("SELECT id, username, role FROM users WHERE id = ?")
+		.get(record.user_id);
+	if (!user) {
+		db.prepare("DELETE FROM refresh_tokens WHERE token = ?").run(refreshToken);
+		res.clearCookie("token");
+		res.clearCookie("refreshToken");
+		return res.status(401).json({
+			error: "Agent associé au jeton introuvable.",
+			code: "USER_NOT_FOUND",
+		});
+	}
+
+	// Émission d'un nouvel accessToken JWT de 15 secondes
+	const newAccessToken = jwt.sign(
+		{
+			id: user.id,
+			username: user.username,
+			role: user.role,
+		},
+		JWT_SECRET,
+		{ expiresIn: "15s" },
+	);
+
+	// Renouvellement du cookie sécurisé token
+	res.cookie("token", newAccessToken, {
+		httpOnly: true,
+		sameSite: "strict",
+		maxAge: 15 * 1000,
+		secure: false,
+	});
+
+	return res.json({
+		success: true,
+		message: "Jeton d'accès renouvelé avec succès.",
+		accessToken: newAccessToken,
+		expiresIn: 15,
+	});
+};
+
+router.post("/refresh", handleRefresh);
+
+// Déconnexion avec révocation immédiate du refreshToken en base SQLite
+const handleLogout = (req, res) => {
+	const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+	if (refreshToken) {
+		try {
+			const record = db
+				.prepare("SELECT user_id FROM refresh_tokens WHERE token = ?")
+				.get(refreshToken);
+			if (record) {
+				const user = db
+					.prepare("SELECT username FROM users WHERE id = ?")
+					.get(record.user_id);
+				if (user) {
+					auditLog(user.username, "LOGOUT", req);
+				}
+			}
+			// Révocation définitive du jeton en BDD
+			db.prepare("DELETE FROM refresh_tokens WHERE token = ?").run(refreshToken);
+		} catch (err) {
+			console.error("Erreur révocation refreshToken en BDD :", err);
+		}
+	}
+
 	res.clearCookie("token");
 	res.clearCookie("refreshToken");
-	res.redirect("/auth/login");
-});
+
+	if (req.accepts("json") && (req.xhr || req.headers["content-type"]?.includes("json"))) {
+		return res.json({ success: true, message: "Déconnexion et révocation réussies." });
+	}
+
+	return res.redirect("/auth/login");
+};
+
+router.post("/logout", handleLogout);
+router.get("/logout", handleLogout);
 
 module.exports = router;
