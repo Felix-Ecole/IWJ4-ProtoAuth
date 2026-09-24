@@ -54,5 +54,17 @@ db.exec(`
 	);
 `);
 
+// Table des jetons de rafraîchissement persistants (TP3 - Étape 2)
+db.exec(`
+	CREATE TABLE IF NOT EXISTS refresh_tokens (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		token TEXT UNIQUE NOT NULL,
+		expires_at DATETIME NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	);
+`);
+
 // Export de l'instance de la base de données
 module.exports = db;

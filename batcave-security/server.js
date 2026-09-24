@@ -2,8 +2,6 @@
 require("dotenv").config();
 
 const express = require("express");
-const session = require("express-session");
-const SqliteStore = require("better-sqlite3-session-store")(session);
 const path = require("path");
 const db = require("./config/database");
 
@@ -15,31 +13,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configuration du Session Store persistant SQLite (TP2 - Bonus 1)
-const sessionStore = new SqliteStore({
-	client: db,
-	expired: {
-		clear: true,
-		intervalMs: 900000, // Nettoyage automatique des sessions expirées toutes les 15 minutes
-	},
-});
-
-// Middleware de session avec politique de cookies sécurisés
-app.use(
-	session({
-		name: "bat_identity",
-		secret: process.env.SESSION_SECRET || "batcave_super_secret_session_key_2026_top_secret_bruce_wayne",
-		store: sessionStore,
-		resave: false,
-		saveUninitialized: false,
-		cookie: {
-			httpOnly: true, // Protection contre les failles XSS
-			sameSite: "strict", // Protection contre les attaques CSRF
-			maxAge: 1800000, // Expiration automatique au bout de 30 minutes d'inactivité
-			secure: false, // Environnement de développement local HTTP
-		},
-	})
-);
+// Analyse des cookies HTTP
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
 
 // Middleware anti-usurpation d'identité et détection de vol de session (TP2 - Bonus 2)
 const { antiHijack } = require("./middlewares/antiHijack");
