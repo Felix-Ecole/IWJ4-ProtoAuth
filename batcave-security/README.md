@@ -120,5 +120,64 @@ Le cookie de session `bat_identity` est configuré avec des règles de sécurit�
 
 ---
 
+## 5. TP3 - Le Système de Jetons de la Batcave (Architecture Stateless)
+
+Pour résoudre les crises de saturation mémoire et l'inconfort opérationnel de Batman lors des coupures de session en pleine mission, l'architecture évolue vers un modèle **stateless sécurisé** fondé sur le couple de jetons :
+1. **`accessToken`** : Jetons JWT éphémères signés cryptographiquement (durée courte de 15 secondes pour les démonstrations de rotation).
+2. **`refreshToken`** : Chaîne aléatoire cryptographique opaque valide 7 jours, persistée dans la table SQLite `refresh_tokens`.
+
+### 5.1 Modélisation du Flux et Cycle de Vie (Étape 1)
+
+Le schéma ci-dessous modélise le cycle complet de connexion, d'expiration, de rafraîchissement transparent en arrière-plan et de rejeu automatique ("Retry Pattern") :
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Agent (Batman)
+    participant Client as Navigateur / Frontend (authFetch)
+    participant Mid as Middleware Express (checkJWT)
+    participant API as Serveur Express (Routes Auth)
+    participant DB as Base de données SQLite (refresh_tokens)
+
+    Note over User,DB: Phase 1 : Authentification initiale
+    User->>Client: Saisie identifiants (POST /auth/login)
+    Client->>API: POST /auth/login { username, password }
+    API->>DB: Vérification Bcrypt + INSERT INTO refresh_tokens
+    DB-->>API: Enregistrement confirmé (7 jours)
+    API-->>Client: 200 OK + Set-Cookie: token (JWT 15s) & refreshToken (7j)
+    Client-->>User: Console Bat-Ordinateur déverrouillée
+
+    Note over User,DB: Phase 2 : Expiration de l'accessToken (15 secondes plus tard)
+    User->>Client: Consultation /bat-computer
+    Client->>Mid: GET /bat-computer (Cookie: token expiré)
+    Mid-->>Client: 401 Unauthorized (jwt expired)
+
+    Note over User,DB: Phase 3 : Rafraîchissement automatique en arrière-plan
+    Note over Client: authFetch intercepte le 401 et met la requête en pause
+    Client->>API: POST /api/auth/refresh (Cookie: refreshToken)
+    API->>DB: SELECT & UPDATE refresh_tokens (Contrôle et rotation)
+    DB-->>API: Jeton valide
+    API-->>Client: 200 OK + Set-Cookie: token (Nouveau JWT 15s)
+
+    Note over User,DB: Phase 4 : Rejeu transparent de la requête ("Retry Pattern")
+    Client->>Mid: Rejeu GET /bat-computer (Nouveau Cookie: token)
+    Mid->>API: checkJWT valide le jeton (HMAC-SHA256) -> next()
+    API-->>Client: 200 OK (Données du Bat-Ordinateur)
+    Client-->>User: Affichage fluide et continu sans reconnexion !
+
+    Note over User,DB: Phase 5 : Déconnexion et révocation d'urgence
+    User->>Client: Clic Déconnexion
+    Client->>API: POST /auth/logout (Cookie: refreshToken)
+    API->>DB: DELETE FROM refresh_tokens WHERE token = ?
+    DB-->>API: Jeton révoqué
+    API-->>Client: 200 OK + Clear-Cookie: token & refreshToken
+    Client-->>User: Redirection /auth/login
+```
+
+> [!NOTE]
+> Le schéma technique haute résolution au format image est disponible à la racine du dépôt : [`tp3-architecture-flux.png`](../tp3-architecture-flux.png).
+
+---
+
 > [!NOTE]
 > Pour les instructions d'installation, de lancement et les procédures de validation (cURL, Postman, navigateur), consultez le document racine [`DEVELOPMENT.md`](../DEVELOPMENT.md).
