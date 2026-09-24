@@ -135,6 +135,86 @@
 				</div>
 			</section>
 
+			<!-- Section Sécurité & Clé d'Accès ANSSI (Étape 5) -->
+			<section class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-5">
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex items-center gap-2">
+						<i class="fa-solid fa-key text-amber-400"></i>
+						<h3 class="text-sm font-semibold text-zinc-100 uppercase tracking-wider">
+							Mise à Jour de la Clé de Sécurité (Directive ANSSI)
+						</h3>
+					</div>
+					<span class="text-[10px] text-zinc-500 font-mono">CONFORMITÉ ANSSI 12+ CAR</span>
+				</div>
+
+				<form id="passwordForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div>
+						<label class="block text-xs text-zinc-400 mb-1">Ancienne clé de sécurité</label>
+						<input
+							type="password"
+							id="oldPassword"
+							required
+							autocomplete="current-password"
+							class="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-amber-400"
+							placeholder="••••••••••••" />
+					</div>
+					<div>
+						<label class="block text-xs text-zinc-400 mb-1">Nouvelle clé (min 12 car.)</label>
+						<input
+							type="password"
+							id="newPassword"
+							required
+							autocomplete="new-password"
+							class="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-amber-400"
+							placeholder="Majuscule, minuscule, chiffre, symbole" />
+					</div>
+					<div>
+						<label class="block text-xs text-zinc-400 mb-1">Confirmation de la nouvelle clé</label>
+						<input
+							type="password"
+							id="confirmPassword"
+							required
+							autocomplete="new-password"
+							class="w-full bg-zinc-950 border border-zinc-800 rounded px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-amber-400"
+							placeholder="Répéter la nouvelle clé" />
+					</div>
+
+					<!-- Critères visuels de validation ANSSI en direct -->
+					<div class="md:col-span-3 bg-zinc-950/70 border border-zinc-800/80 rounded p-3">
+						<p class="text-[11px] font-medium text-zinc-400 mb-2">Critères de conformité ANSSI :</p>
+						<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+							<div id="ruleLength" class="flex items-center gap-1.5 text-zinc-500">
+								<i class="fa-solid fa-circle-xmark text-zinc-600"></i>
+								<span>12 caractères min</span>
+							</div>
+							<div id="ruleCases" class="flex items-center gap-1.5 text-zinc-500">
+								<i class="fa-solid fa-circle-xmark text-zinc-600"></i>
+								<span>Majuscule & minuscule</span>
+							</div>
+							<div id="ruleDigit" class="flex items-center gap-1.5 text-zinc-500">
+								<i class="fa-solid fa-circle-xmark text-zinc-600"></i>
+								<span>Au moins 1 chiffre</span>
+							</div>
+							<div id="ruleSpecial" class="flex items-center gap-1.5 text-zinc-500">
+								<i class="fa-solid fa-circle-xmark text-zinc-600"></i>
+								<span>Caractère spécial</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="md:col-span-3 flex items-center justify-between pt-2">
+						<button
+							type="submit"
+							id="changePwdBtn"
+							class="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold py-1.5 px-4 rounded text-xs transition flex items-center gap-2">
+							<i class="fa-solid fa-shield-halved"></i>
+							<span>Appliquer la nouvelle clé</span>
+						</button>
+						<span id="passwordAlert" class="text-xs hidden"></span>
+					</div>
+				</form>
+			</section>
+
 			<!-- Section Journaux d'audit (Réservée aux ADMIN) -->
 			<section id="auditSection" class="hidden">
 				<div class="bg-zinc-900/50 border border-zinc-800 rounded-lg p-5">
@@ -176,10 +256,42 @@
 		</main>
 
 		<script>
-			// Récupération du profil de session (/api/me)
+			// Wrapper fetch résilient avec Retry Pattern automatique sur expiration JWT (Étape 4)
+			async function authFetch(url, options = {}) {
+				options.credentials = options.credentials || "same-origin";
+
+				let res = await fetch(url, options);
+
+				// Si l'accessToken est expiré (401), tentative de rafraîchissement transparent
+				if (res.status === 401) {
+					try {
+						const refreshRes = await fetch("/api/auth/refresh", {
+							method: "POST",
+							credentials: "same-origin",
+						});
+
+						if (refreshRes.ok) {
+							// Jeton d'accès renouvelé : rejeu transparent de la requête initiale
+							res = await fetch(url, options);
+						} else {
+							// Refresh token expiré ou révoqué : redirection vers la mire de connexion
+							window.location.href = "/auth/login";
+							return res;
+						}
+					} catch (err) {
+						console.error("Échec du rafraîchissement transparent :", err);
+						window.location.href = "/auth/login";
+						return res;
+					}
+				}
+
+				return res;
+			}
+
+			// Récupération du profil de l'agent authentifié (/api/me)
 			async function loadUserProfile() {
 				try {
-					const res = await fetch("/api/me", { credentials: "same-origin" });
+					const res = await authFetch("/api/me");
 					if (!res.ok) {
 						window.location.href = "/auth/login";
 						return;
@@ -207,7 +319,7 @@
 			// Chargement de l'arsenal tactique (/api/secrets)
 			async function loadArsenal() {
 				try {
-					const res = await fetch("/api/secrets", { credentials: "same-origin" });
+					const res = await authFetch("/api/secrets");
 					if (!res.ok) return;
 					const data = await res.json();
 					const grid = document.getElementById("arsenalGrid");
@@ -253,7 +365,7 @@
 			// Chargement des rapports de mission (/api/reports)
 			async function loadReports() {
 				try {
-					const res = await fetch("/api/reports", { credentials: "same-origin" });
+					const res = await authFetch("/api/reports");
 					if (!res.ok) return;
 					const data = await res.json();
 
@@ -287,7 +399,7 @@
 			// Chargement des journaux d'audit pour les administrateurs
 			async function loadAuditLogs() {
 				try {
-					const res = await fetch("/api/admin/logs", { credentials: "same-origin" });
+					const res = await authFetch("/api/admin/logs");
 					if (!res.ok) return;
 					const logs = await res.json();
 					const tbody = document.getElementById("auditLogsBody");
@@ -327,10 +439,9 @@
 				if (!title || !content) return;
 
 				try {
-					const res = await fetch("/api/reports", {
+					const res = await authFetch("/api/reports", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						credentials: "same-origin",
 						body: JSON.stringify({ title, content }),
 					});
 
@@ -348,6 +459,88 @@
 					}
 				} catch (err) {
 					console.error("Erreur envoi rapport :", err);
+				}
+			});
+
+			// Contrôle dynamique des critères ANSSI pour la clé de sécurité (Étape 5)
+			const newPasswordInput = document.getElementById("newPassword");
+			newPasswordInput.addEventListener("input", () => {
+				const val = newPasswordInput.value;
+
+				const isLengthValid = val.length >= 12;
+				const isCasesValid = /[a-z]/.test(val) && /[A-Z]/.test(val);
+				const isDigitValid = /\d/.test(val);
+				const isSpecialValid = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(val);
+
+				updateRuleStatus("ruleLength", isLengthValid);
+				updateRuleStatus("ruleCases", isCasesValid);
+				updateRuleStatus("ruleDigit", isDigitValid);
+				updateRuleStatus("ruleSpecial", isSpecialValid);
+			});
+
+			function updateRuleStatus(elementId, isValid) {
+				const el = document.getElementById(elementId);
+				if (!el) return;
+				const icon = el.querySelector("i");
+				if (isValid) {
+					el.className = "flex items-center gap-1.5 text-emerald-400 font-medium";
+					icon.className = "fa-solid fa-circle-check text-emerald-400";
+				} else {
+					el.className = "flex items-center gap-1.5 text-zinc-500";
+					icon.className = "fa-solid fa-circle-xmark text-zinc-600";
+				}
+			}
+
+			// Soumission du formulaire de changement de clé de sécurité
+			document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+				e.preventDefault();
+				const oldPassword = document.getElementById("oldPassword").value;
+				const newPassword = document.getElementById("newPassword").value;
+				const confirmPassword = document.getElementById("confirmPassword").value;
+				const alertEl = document.getElementById("passwordAlert");
+				const submitBtn = document.getElementById("changePwdBtn");
+
+				alertEl.className = "text-xs hidden";
+
+				if (newPassword !== confirmPassword) {
+					alertEl.className = "text-xs p-2 rounded bg-red-950 text-red-300 border border-red-800 block";
+					alertEl.textContent = "La confirmation ne correspond pas à la nouvelle clé.";
+					return;
+				}
+
+				submitBtn.disabled = true;
+				submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Application...</span>';
+
+				try {
+					const res = await authFetch("/api/auth/change-password", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ oldPassword, newPassword, confirmPassword }),
+					});
+
+					const data = await res.json();
+
+					if (res.ok) {
+						alertEl.className =
+							"text-xs p-2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 block";
+						alertEl.textContent = data.message || "Clé de sécurité mise à jour avec succès.";
+						document.getElementById("passwordForm").reset();
+						// Réinitialisation des indicateurs de conformité
+						["ruleLength", "ruleCases", "ruleDigit", "ruleSpecial"].forEach((id) =>
+							updateRuleStatus(id, false)
+						);
+					} else {
+						alertEl.className =
+							"text-xs p-2 rounded bg-red-950 text-red-300 border border-red-800 block";
+						alertEl.textContent = data.error || "Erreur lors de la modification de la clé.";
+					}
+				} catch (err) {
+					console.error("Erreur modification clé :", err);
+					alertEl.className = "text-xs p-2 rounded bg-red-950 text-red-300 border border-red-800 block";
+					alertEl.textContent = "Erreur de communication avec le serveur de la Batcave.";
+				} finally {
+					submitBtn.disabled = false;
+					submitBtn.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>Appliquer la nouvelle clé</span>';
 				}
 			});
 
