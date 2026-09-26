@@ -1,7 +1,7 @@
 // Routeur pour l'arsenal tactique et les informations de profil de session
 const express = require("express");
 const db = require("../config/database");
-const { isAuthenticated } = require("../middlewares/authCheck");
+const { isAuthenticated, require2FA } = require("../middlewares/authCheck");
 const { checkRole } = require("../middlewares/checkRole");
 
 const router = express.Router();
@@ -59,6 +59,36 @@ router.get("/admin/logs", isAuthenticated, checkRole("ADMIN"), (req, res) => {
 		console.error("Erreur récupération logs admin :", err);
 		res.status(500).json({ error: "Erreur lecture des journaux d'audit." });
 	}
+});
+
+// GET /api/batmobile/systems - Commandes tactiques Batmobile (Challenge 2 - 2FA requis)
+router.get("/batmobile/systems", isAuthenticated, require2FA, (req, res) => {
+	res.json({
+		status: "ACTIF",
+		agent: req.user.username,
+		twoFactorCertified: true,
+		systems: {
+			turboreacteurs: "100% de puissance",
+			blindageActif: "Alliage titane renforce - Actif",
+			contreMesures: "Leurres thermiques et brouillage radar armes",
+			autodestruction: "Desactivee (code Alfred requis)",
+		},
+	});
+});
+
+// GET /api/suit/status - Télémétrie de la Bat-Armure (Challenge 3 - Support Authorization Bearer)
+router.get("/suit/status", isAuthenticated, (req, res) => {
+	res.json({
+		suit: "Bat-Armure Mk-VII",
+		pilot: req.user.username,
+		authMode: req.headers.authorization ? "BEARER_TOKEN" : "HTTP_COOKIE",
+		telemetry: {
+			armorIntegrity: "98.4%",
+			energyReserve: "94.2%",
+			stealthCloak: "OPERATIONNEL",
+			hudLink: "CONNECTE",
+		},
+	});
 });
 
 module.exports = router;

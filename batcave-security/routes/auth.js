@@ -85,6 +85,7 @@ router.post("/login", async (req, res) => {
 			id: user.id,
 			username: user.username,
 			role: user.role,
+			is2FAVerified: false,
 		},
 		JWT_SECRET,
 		{ expiresIn: "15s" },
@@ -244,12 +245,27 @@ const handleRefresh = async (req, res) => {
 		return res.status(500).json({ error: "Erreur serveur lors de la rotation des jetons." });
 	}
 
+	// Vérification de la persistance du statut 2FA Batmobile
+	let is2FA = false;
+	const currentToken =
+		req.cookies?.token ||
+		(req.headers.authorization?.startsWith("Bearer ")
+			? req.headers.authorization.split(" ")[1]
+			: null);
+	if (currentToken) {
+		const decodedPrev = jwt.decode(currentToken);
+		if (decodedPrev && decodedPrev.is2FAVerified) {
+			is2FA = true;
+		}
+	}
+
 	// Émission d'un nouvel accessToken JWT de 15 secondes
 	const newAccessToken = jwt.sign(
 		{
 			id: user.id,
 			username: user.username,
 			role: user.role,
+			is2FAVerified: is2FA,
 		},
 		JWT_SECRET,
 		{ expiresIn: "15s" },
@@ -387,6 +403,51 @@ router.post("/change-password", checkJWT, async (req, res) => {
 			error: "Erreur serveur lors de l'enregistrement de la nouvelle clé.",
 		});
 	}
+});
+
+// Code secret d'Alfred pour le second facteur Batmobile (Challenge 2)
+const ALFRED_2FA_CODE = process.env.ALFRED_2FA_CODE || "BAT-2026";
+
+// POST /verify-2fa (et /api/auth/verify-2fa) - Validation du protocole 2FA Batmobile
+router.post("/verify-2fa", checkJWT, (req, res) => {
+	const { code } = req.body || {};
+
+	if (!code || code.trim() !== ALFRED_2FA_CODE) {
+		auditLog(req.user.username, "2FA_FAILED", req);
+		return res.status(401).json({
+			error: "Code 2FA invalide. Déverrouillage des commandes Batmobile refusé.",
+			code: "INVALID_2FA_CODE",
+		});
+	}
+
+	// Émission d'un nouveau jeton d'accès certifié 2FA
+	const upgradedToken = jwt.sign(
+		{
+			id: req.user.id,
+			username: req.user.username,
+			role: req.user.role,
+			is2FAVerified: true,
+		},
+		JWT_SECRET,
+		{ expiresIn: "15s" },
+	);
+
+	// Renouvellement du cookie sécurisé token
+	res.cookie("token", upgradedToken, {
+		httpOnly: true,
+		sameSite: "strict",
+		maxAge: 15 * 1000,
+		secure: false,
+	});
+
+	auditLog(req.user.username, "2FA_SUCCESS", req);
+
+	return res.json({
+		success: true,
+		message: "Protocole 2FA validé. Systèmes tactiques Batmobile opérationnels.",
+		token: upgradedToken,
+		is2FAVerified: true,
+	});
 });
 
 module.exports = router;

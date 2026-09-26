@@ -52,7 +52,18 @@ function checkJWT(req, res, next) {
 	}
 }
 
+// Middleware de contrôle du second facteur d'authentification 2FA (Challenge 2)
+function require2FA(req, res, next) {
+	if (!req.user || !req.user.is2FAVerified) {
+		return res.status(403).json({
+			error: "Accès refusé : validation du second facteur (2FA) requise pour ce système critique.",
+			code: "2FA_REQUIRED",
+		});
+	}
+	return next();
+}
+
 // Alias de compatibilité pour les routeurs existants
 const isAuthenticated = checkJWT;
 
-module.exports = { checkJWT, isAuthenticated };
+module.exports = { checkJWT, isAuthenticated, require2FA };
