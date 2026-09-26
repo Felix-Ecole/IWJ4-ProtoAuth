@@ -133,9 +133,65 @@ curl -i -b cookies.txt -c cookies.txt http://localhost:3000/auth/logout
 
 ---
 
-## 5. Conventions Git et Livrables
+## 5. Procédures de Validation et Recette (TP3)
+
+La validation du TP3 porte sur l'architecture stateless à jetons (JWT + Refresh Token persistant), le pattern Retry frontend, la politique de mot de passe ANSSI et les trois challenges bonus.
+
+### Validation Automatisée
+Un banc d'essais officiel validant l'intégralité des 14 scénarios techniques est disponible à la racine du projet :
+```bash
+# S'assurer que le serveur est démarré (cd batcave-security && npm start)
+node tests/TP3.js
+```
+
+### Méthode 1 : Parcours Navigateur Web
+1. Ouvrir `http://localhost:3000/auth/login`.
+2. Soumettre les identifiants d'un agent (ex. : `bruce` / `WaynePassword123!`).
+3. Constater dans les DevTools (Stockage -> Cookies) l'émission simultanée de :
+   - `token` : jeton d'accès JWT de courte durée (15 secondes).
+   - `refreshToken` : jeton opaque de longue durée (7 jours).
+4. Patienter 16 secondes sur la console du Bat-Ordinateur (`/bat-computer`) pour laisser expirer le jeton d'accès.
+5. Effectuer une action (ex. : rédiger un nouveau rapport de mission ou charger les données) : aucune coupure n'est visible pour l'utilisateur grâce au wrapper `authFetch` qui intercepte l'erreur 401 et renouvelle le token en arrière-plan.
+6. Tester la section "Mise à Jour de la Clé de Sécurité (Directive ANSSI)" : saisir un mot de passe et observer la validation visuelle en direct des 4 indicateurs (longueur $\ge 12$, majuscule, minuscule, chiffre, symbole spécial).
+7. Cliquer sur "Déconnexion" (`/auth/logout`) : les cookies sont supprimés et le `refreshToken` est immédiatement purgé de la table SQLite `refresh_tokens`.
+
+### Méthode 2 : Ligne de commande cURL (Cycle JWT & Challenges)
+```bash
+# 1. Connexion et stockage des cookies token et refreshToken
+curl -i -c cookies_tp3.txt -A "Mozilla/5.0" -X POST http://localhost:3000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"bruce","password":"WaynePassword123!"}'
+
+# 2. Accès avec accessToken valide (200 OK)
+curl -i -b cookies_tp3.txt -A "Mozilla/5.0" http://localhost:3000/api/me
+
+# 3. Attente d'expiration (16 secondes) et constat de l'erreur 401
+sleep 16
+curl -i -b cookies_tp3.txt -A "Mozilla/5.0" http://localhost:3000/api/me
+
+# 4. Renouvellement avec rotation du Refresh Token (Challenge 1)
+curl -i -b cookies_tp3.txt -c cookies_tp3.txt -A "Mozilla/5.0" -X POST http://localhost:3000/api/auth/refresh
+
+# 5. Détection de réutilisation frauduleuse (Reuse Detection) : rejeu de l'ancien refreshToken
+# Entraîne une réponse 403 Forbidden et la révocation de toutes les sessions de l'agent
+
+# 6. Activation du protocole 2FA Batmobile (Challenge 2)
+curl -i -b cookies_tp3.txt -c cookies_tp3.txt -A "Mozilla/5.0" -X POST http://localhost:3000/api/auth/verify-2fa \
+     -H "Content-Type: application/json" \
+     -d '{"code":"BAT-2026"}'
+
+# 7. Accès aux commandes de la Batmobile déverrouillé
+curl -i -b cookies_tp3.txt -A "Mozilla/5.0" http://localhost:3000/api/batmobile/systems
+
+# 8. Support Bearer pour Bat-Armure (Challenge 3 - sans aucun cookie)
+curl -i -H "Authorization: Bearer <VOTRE_JWT>" http://localhost:3000/api/suit/status
+```
+
+---
+
+## 6. Conventions Git et Livrables
 
 - **Branche principale** : `master`
-- **Branches de travail** : `tp<numero>-<theme>` (ex. : `tp2-systeme-badges`)
-- **Releases** : Tags annotés SemVer (`v1.0.0`, `v2.0.0`)
+- **Branches de travail** : `tp<numero>-<theme>` (ex. : `tp3-systeme-jetons`)
+- **Releases** : Tags annotés SemVer (`v1.0.0`, `v2.0.0`, `v3.0.0`)
 - **Documentation** : Mise à jour conjointe du `README.md` racine, du `README.md` du TP et du `CHANGELOG.md`.

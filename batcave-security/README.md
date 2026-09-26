@@ -133,49 +133,118 @@ Le schéma ci-dessous modélise le cycle complet de connexion, d'expiration, de 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Agent (Batman)
-    participant Client as Navigateur / Frontend (authFetch)
-    participant Mid as Middleware Express (checkJWT)
-    participant API as Serveur Express (Routes Auth)
-    participant DB as Base de données SQLite (refresh_tokens)
+    participant Client as Client (Frontend authFetch)
+    participant API as API (Serveur Express)
+    participant DB as DB (Base SQLite)
 
-    Note over User,DB: Phase 1 : Authentification initiale
-    User->>Client: Saisie identifiants (POST /auth/login)
-    Client->>API: POST /auth/login { username, password }
-    API->>DB: Vérification Bcrypt + INSERT INTO refresh_tokens
-    DB-->>API: Enregistrement confirmé (7 jours)
-    API-->>Client: 200 OK + Set-Cookie: token (JWT 15s) & refreshToken (7j)
-    Client-->>User: Console Bat-Ordinateur déverrouillée
+    alt 1. Connexion initiale
+        Client->>API: POST /auth/login { username, password }
+        API->>DB: Vérification Bcrypt & Stockage refreshToken
+        DB-->>API: Enregistrement confirmé (7 jours)
+        API-->>Client: 200 OK + Set-Cookie: token (JWT 15s) & refreshToken (7j HttpOnly)
+    end
 
-    Note over User,DB: Phase 2 : Expiration de l'accessToken (15 secondes plus tard)
-    User->>Client: Consultation /bat-computer
-    Client->>Mid: GET /bat-computer (Cookie: token expiré)
-    Mid-->>Client: 401 Unauthorized (jwt expired)
+    alt 2. Requête normale avec JWT valide
+        Client->>API: GET /api/me (Cookie: token valide)
+        API->>API: Vérification cryptographique signature JWT
+        API-->>Client: 200 OK (Données utilisateur)
+    end
 
-    Note over User,DB: Phase 3 : Rafraîchissement automatique en arrière-plan
-    Note over Client: authFetch intercepte le 401 et met la requête en pause
-    Client->>API: POST /api/auth/refresh (Cookie: refreshToken)
-    API->>DB: SELECT & UPDATE refresh_tokens (Contrôle et rotation)
-    DB-->>API: Jeton valide
-    API-->>Client: 200 OK + Set-Cookie: token (Nouveau JWT 15s)
+    alt 3. Expiration et Rafraîchissement transparent (Retry Pattern)
+        Client->>API: GET /api/me (Cookie: token expiré)
+        API-->>Client: 401 Unauthorized (TOKEN_EXPIRED)
+        Note over Client: authFetch intercepte l'erreur 401 et suspend la requête
+        Client->>API: POST /api/auth/refresh (Cookie: refreshToken)
+        API->>DB: Contrôle validité refreshToken & Rotation (is_used = 1)
+        DB-->>API: Jeton valide
+        API-->>Client: 200 OK + Set-Cookie: token (Nouveau JWT 15s)
+        Note over Client: Rejeu automatique de la requête initiale en arrière-plan
+        Client->>API: GET /api/me (Nouveau Cookie: token)
+        API-->>Client: 200 OK (Données délivrées sans coupure UX)
+    end
 
-    Note over User,DB: Phase 4 : Rejeu transparent de la requête ("Retry Pattern")
-    Client->>Mid: Rejeu GET /bat-computer (Nouveau Cookie: token)
-    Mid->>API: checkJWT valide le jeton (HMAC-SHA256) -> next()
-    API-->>Client: 200 OK (Données du Bat-Ordinateur)
-    Client-->>User: Affichage fluide et continu sans reconnexion !
-
-    Note over User,DB: Phase 5 : Déconnexion et révocation d'urgence
-    User->>Client: Clic Déconnexion
-    Client->>API: POST /auth/logout (Cookie: refreshToken)
-    API->>DB: DELETE FROM refresh_tokens WHERE token = ?
-    DB-->>API: Jeton révoqué
-    API-->>Client: 200 OK + Clear-Cookie: token & refreshToken
-    Client-->>User: Redirection /auth/login
+    alt 4. Déconnexion et révocation d'urgence
+        Client->>API: POST /auth/logout (Cookie: refreshToken)
+        API->>DB: DELETE FROM refresh_tokens WHERE token = ?
+        DB-->>API: Jeton révoqué en BDD
+        API-->>Client: 200 OK + Clear-Cookie: token & refreshToken
+    end
 ```
 
 > [!NOTE]
 > Le schéma technique haute résolution au format image est disponible à la racine du dépôt : [`tp3-architecture-flux.png`](../tp3-architecture-flux.png).
+
+### 5.2 Architecture Stateless & Table des Jetons (Étape 2)
+- Élimination de `express-session` au profit d'un modèle sans état basé sur `cookie-parser` et `jsonwebtoken`.
+- Configuration de deux cookies sécurisés distincts (`HttpOnly`, `SameSite=Strict`, `secure: false` en environnement local) :
+  - `token` : jeton d'accès JWT signé cryptographiquement (`expiresIn: "15s"`).
+  - `refreshToken` : jeton opaque aléatoire généré par `crypto.randomBytes(64)` d'une durée de 7 jours.
+- Schéma de persistance SQLite (`refresh_tokens`) :
+  - `id` : identifiant unique auto-incrémenté.
+  - `user_id` : clé étrangère liant le jeton à la table `users` (avec `ON DELETE CASCADE`).
+  - `token` : valeur cryptographique unique du jeton.
+  - `expires_at` : horodatage ISO de fin de validité.
+  - `is_used` : drapeau binaire (0 ou 1) dédié à la détection de rejeu.
+
+### 5.3 Rafraîchissement Transparent & Révocation d'Urgence (Étape 3)
+- **Endpoint `POST /api/auth/refresh` (et `/auth/refresh`)** :
+  - Récupère le `refreshToken` depuis les cookies HTTP-only.
+  - Vérifie son existence et son statut en base de données.
+  - En cas de validité : émet un nouvel `accessToken` JWT de 15 secondes.
+  - En cas d'expiration : purge immédiate du token en base et retour `401 Unauthorized`.
+- **Déconnexion sécurisée (`/auth/logout`)** :
+  - Révocation physique immédiate du jeton en base (`DELETE FROM refresh_tokens WHERE token = ?`).
+  - Suppression conjointe des deux cookies côté client.
+
+### 5.4 Résilience Frontend : Le Pattern "Retry" (Étape 4)
+Pour que Batman ne subisse aucune déconnexion intempestive en intervention lors de l'expiration du jeton de 15 secondes, la fonction wrapper `authFetch(url, options)` a été intégrée dans la console Bat-Ordinateur :
+1. Exécution de la requête initiale.
+2. Si le serveur renvoie un code `401 Unauthorized` (jeton d'accès expiré) :
+   - Interception immédiate en tâche de fond.
+   - Appel transparent de `POST /api/auth/refresh`.
+   - Si le refresh réussit : la requête initiale est automatiquement rejouée et renvoie ses données comme si de rien n'était.
+   - Si le refresh échoue (refreshToken expiré ou révoqué) : redirection vers `/auth/login`.
+
+### 5.5 Modification Sécurisée du Mot de Passe selon les Directives ANSSI (Étape 5)
+La route `POST /api/auth/change-password` impose une politique de sécurité stricte certifiée par l'ANSSI :
+- Longueur minimale de **12 caractères**.
+- Présence obligatoire d'au moins **une majuscule**, **une minuscule**, **un chiffre** et **un symbole spécial**.
+- Différence obligatoire entre l'ancienne et la nouvelle clé.
+- Vérification cryptographique de l'ancien mot de passe via `bcrypt.compare`.
+- Interface visuelle interactive dans la console Bat-Ordinateur avec 4 jauges de conformité actualisées en temps réel à chaque frappe de clavier.
+
+### 5.6 Challenges Bonus Implémentés
+
+#### Challenge 1 : Rotation des Refresh Tokens & Détection de Réutilisation (*Reuse Detection*)
+- **Rotation systématique** : à chaque sollicitation de `/refresh`, l'ancien jeton est marqué comme consommé (`is_used = 1`) et un nouveau couple de jetons est généré.
+- **Détection d'attaque par rejeu** : si un pirate tente d'utiliser un jeton déjà consommé, le serveur détecte immédiatement une tentative de vol.
+- **Sanction maximale** : révocation immédiate de **toutes les sessions actives** de l'agent en base (`DELETE FROM refresh_tokens WHERE user_id = ?`), consignation d'un log `FRAUD` et blocage 403.
+
+#### Challenge 2 : Protocole 2FA pour les Commandes Critiques de la Batmobile
+- Les commandes hautement sensibles de la Batmobile (`/api/batmobile/systems`) exigent une certification 2FA.
+- Le jeton JWT émis au login possède le claim `is2FAVerified: false`.
+- L'agent doit soumettre le code secret d'Alfred sur `POST /api/auth/verify-2fa`.
+- En cas de succès, un nouveau JWT rehaussé avec `is2FAVerified: true` est délivré, déverrouillant le middleware `require2FA`.
+
+#### Challenge 3 : Support Universel Bearer Token pour la Bat-Armure Mk-VII
+- Les dispositifs IoT de terrain (comme la Bat-Armure) ne gèrent pas le stockage de cookies.
+- Le middleware `checkJWT` extrait le jeton indifféremment depuis le cookie HTTP ou depuis l'en-tête standard `Authorization: Bearer <JWT>`.
+- Route dédiée de télémétrie de l'armure : `GET /api/suit/status`.
+
+### 5.7 Tableau Récapitulatif des Endpoints (TP3)
+
+| Méthode | Route | Authentification requise | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/login` | Public | Authentification, émission des cookies `token` (15s) et `refreshToken` (7j) |
+| `POST` | `/api/auth/refresh` | Cookie `refreshToken` | Rotation des jetons et renouvellement de l'accessToken JWT |
+| `POST` | `/auth/logout` | Cookie `refreshToken` | Révocation immédiate en BDD SQLite et purge des cookies |
+| `POST` | `/api/auth/change-password` | JWT (`checkJWT`) | Mise à jour sécurisée de la clé selon les critères ANSSI |
+| `POST` | `/api/auth/verify-2fa` | JWT (`checkJWT`) | Validation du second facteur 2FA (Code Alfred) pour la Batmobile |
+| `GET` | `/api/me` | JWT (Cookie ou Bearer) | Restitution du profil de l'agent connecté |
+| `GET` | `/api/secrets` | JWT (Cookie ou Bearer) | Consultation de l'arsenal tactique |
+| `GET` | `/api/batmobile/systems` | JWT + 2FA (`require2FA`) | Commandes tactiques de la Batmobile (2FA certifié requis) |
+| `GET` | `/api/suit/status` | JWT (Bearer ou Cookie) | Télémétrie en temps réel de la Bat-Armure Mk-VII |
+| `GET` | `/bat-computer` | JWT (`checkJWT`) | Console centrale d'administration du Bat-Ordinateur |
 
 ---
 

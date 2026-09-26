@@ -10,6 +10,7 @@ Projet pédagogique dédié à l'étude et à l'implémentation progressive de d
 | :--- | :--- | :--- | :--- | :--- |
 | **TP1** | `batcave-security` | Basic Auth, Bcrypt, persistance SQLite, RBAC & audit | `tp1-securite-batcave` | Terminé (`v1.0.0`) |
 | **TP2** | `batcave-security` | Badges de session (cookie signé `bat_identity`), SQLite Store, Anti-Hijacking & Registre d'audit | `tp2-systeme-badges` | Terminé (`v2.0.0`) |
+| **TP3** | `batcave-security` | Modèle stateless JWT, Refresh Tokens persistants, Retry Pattern frontend, directives ANSSI, Rotation & 2FA | `tp3-systeme-jetons` | Terminé (`v3.0.0`) |
 
 ---
 
@@ -30,6 +31,9 @@ Le serveur écoute par défaut sur [http://localhost:3000](http://localhost:3000
 
 ### Lancement des bancs d'essais automatisés
 ```bash
+# Exécuter le banc d'essais officiel du TP3 (14 scénarios validés)
+node tests/TP3.js
+
 # Exécuter le banc d'essais du TP2 (13 scénarios validés)
 node tests/TP2.js
 

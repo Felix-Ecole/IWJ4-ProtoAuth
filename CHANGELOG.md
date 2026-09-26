@@ -6,6 +6,29 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 
 ---
 
+## [3.0.0] - 2026-09-26
+
+### Ajouté
+- Migration vers une architecture stateless pure fondée sur le couple de jetons JWT / Refresh Token.
+- Émission d'un `accessToken` JWT d'espérance de vie courte (15 secondes) signé cryptographiquement.
+- Génération d'un `refreshToken` opaque aléatoire de 64 octets (espérance de vie de 7 jours).
+- Table relationnelle SQLite `refresh_tokens` assurant la persistance et la traçabilité des jetons.
+- Endpoint de renouvellement transparent `POST /api/auth/refresh` (et `/auth/refresh`).
+- Procédure de déconnexion avec révocation immédiate en base (`DELETE FROM refresh_tokens WHERE token = ?`).
+- Pattern Retry frontend (`authFetch`) interceptant les codes 401, rafraîchissant les jetons en tâche de fond et rejouant les requêtes de façon transparente sans coupure opérationnelle.
+- Route sécurisée `POST /api/auth/change-password` soumise aux directives de robustesse de l'ANSSI (12 caractères min, majuscule, minuscule, chiffre, symbole spécial).
+- Interface de renouvellement de clé avec indicateurs interactifs de conformité ANSSI dans la console Bat-Ordinateur.
+- Rotation systématique des refresh tokens et détection de réutilisation frauduleuse (*Reuse Detection*) avec révocation globale de toutes les sessions actives de l'agent compromis (Challenge 1).
+- Protocole de double authentification 2FA pour les commandes tactiques de la Batmobile (`POST /api/auth/verify-2fa`, claim `is2FAVerified`, middleware `require2FA`, route `/api/batmobile/systems`) (Challenge 2).
+- Prise en charge native de l'en-tête standard `Authorization: Bearer <JWT>` pour les équipements IoT et la Bat-Armure Mk-VII (`GET /api/suit/status`) (Challenge 3).
+- Banc d'essais automatisé officiel couvrant l'ensemble du cycle de vie des jetons et des scénarios de test (`tests/TP3.js`).
+
+### Modifié
+- Remplacement du middleware de session serveur (`express-session`) par `cookie-parser` et `jsonwebtoken`.
+- Adaptation des routeurs applicatifs (`batcomputer`, `reports`, `secrets`, `admin`) pour consommer le payload `req.user`.
+
+---
+
 ## [2.0.0] - 2026-09-23
 
 ### Ajouté
