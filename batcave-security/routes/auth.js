@@ -141,7 +141,7 @@ router.post("/login", async (req, res) => {
 	return res.redirect("/bat-computer");
 });
 
-// POST /refresh (et /api/auth/refresh) - Renouvellement transparent de l'accessToken JWT
+// POST /refresh (et /api/auth/refresh) - Renouvellement avec rotation et détection de réutilisation (Challenge 1)
 const handleRefresh = async (req, res) => {
 	const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
@@ -161,6 +161,36 @@ const handleRefresh = async (req, res) => {
 		return res.status(401).json({
 			error: "Jeton de rafraîchissement invalide ou révoqué.",
 			code: "INVALID_REFRESH_TOKEN",
+		});
+	}
+
+	// CHALLENGE 1 : Détection d'attaque par rejeu (Reuse Detection)
+	// Si le jeton présenté a déjà été consommé, tentative de vol/rejeu suspectée
+	if (record.is_used === 1) {
+		const compromisedUser = db
+			.prepare("SELECT username FROM users WHERE id = ?")
+			.get(record.user_id);
+		const username = compromisedUser?.username || "inconnu";
+
+		console.warn(
+			`[ALERTE SÉCURITÉ BATCAVE] Réutilisation frauduleuse de refresh token détectée pour l'agent "${username}" !`,
+		);
+
+		// Sanction maximale : révocation immédiate de TOUS les jetons de cet utilisateur
+		try {
+			db.prepare("DELETE FROM refresh_tokens WHERE user_id = ?").run(record.user_id);
+			auditLog(username, "FRAUD", req);
+		} catch (err) {
+			console.error("Erreur lors de la révocation en cascade :", err);
+		}
+
+		res.clearCookie("token");
+		res.clearCookie("refreshToken");
+
+		return res.status(403).json({
+			error:
+				"Alerte de sécurité critique : tentative de réutilisation d'un jeton déjà consommé. Toutes les sessions de l'agent ont été immédiatement révoquées.",
+			code: "TOKEN_REUSE_DETECTED",
 		});
 	}
 
@@ -198,6 +228,22 @@ const handleRefresh = async (req, res) => {
 		});
 	}
 
+	// Rotation : marquage de l'ancien refreshToken comme consommé (pour détection de rejeu futur)
+	db.prepare("UPDATE refresh_tokens SET is_used = 1 WHERE id = ?").run(record.id);
+
+	// Génération d'un NOUVEAU refreshToken cryptographique (Rotation)
+	const newRefreshToken = crypto.randomBytes(64).toString("hex");
+	const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+	try {
+		db.prepare(
+			"INSERT INTO refresh_tokens (user_id, token, expires_at, is_used) VALUES (?, ?, ?, 0)",
+		).run(user.id, newRefreshToken, newExpiresAt);
+	} catch (err) {
+		console.error("Erreur insertion nouveau refreshToken lors de la rotation :", err);
+		return res.status(500).json({ error: "Erreur serveur lors de la rotation des jetons." });
+	}
+
 	// Émission d'un nouvel accessToken JWT de 15 secondes
 	const newAccessToken = jwt.sign(
 		{
@@ -209,7 +255,7 @@ const handleRefresh = async (req, res) => {
 		{ expiresIn: "15s" },
 	);
 
-	// Renouvellement du cookie sécurisé token
+	// Renouvellement des deux cookies sécurisés avec le nouveau couple de jetons
 	res.cookie("token", newAccessToken, {
 		httpOnly: true,
 		sameSite: "strict",
@@ -217,10 +263,18 @@ const handleRefresh = async (req, res) => {
 		secure: false,
 	});
 
+	res.cookie("refreshToken", newRefreshToken, {
+		httpOnly: true,
+		sameSite: "strict",
+		maxAge: 7 * 24 * 60 * 60 * 1000,
+		secure: false,
+	});
+
 	return res.json({
 		success: true,
-		message: "Jeton d'accès renouvelé avec succès.",
+		message: "Rotation réussie des jetons de sécurité.",
 		accessToken: newAccessToken,
+		refreshToken: newRefreshToken,
 		expiresIn: 15,
 	});
 };

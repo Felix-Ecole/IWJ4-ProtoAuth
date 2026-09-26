@@ -54,17 +54,25 @@ db.exec(`
 	);
 `);
 
-// Table des jetons de rafraîchissement persistants (TP3 - Étape 2)
+// Table des jetons de rafraîchissement persistants (TP3 - Étape 2 & Challenge 1)
 db.exec(`
 	CREATE TABLE IF NOT EXISTS refresh_tokens (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL,
 		token TEXT UNIQUE NOT NULL,
 		expires_at DATETIME NOT NULL,
+		is_used INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
 `);
+
+// Migration incrémentale : ajout de is_used si la table préexistait
+try {
+	db.exec("ALTER TABLE refresh_tokens ADD COLUMN is_used INTEGER DEFAULT 0;");
+} catch (e) {
+	// Colonne déjà existante
+}
 
 // Export de l'instance de la base de données
 module.exports = db;
