@@ -2,14 +2,15 @@
 const express = require("express");
 const db = require("../config/database");
 const { isAuthenticated } = require("../middlewares/authCheck");
+const { checkScope } = require("../middlewares/checkScope");
 
 const router = express.Router();
 
 // Application du vigile d'authentification sur toutes les routes de rapports
 router.use(isAuthenticated);
 
-// POST /api/reports - Enregistrement d'un rapport de mission
-router.post("/", (req, res) => {
+// POST /api/reports - Enregistrement d'un rapport de mission (requiert le scope reports:write)
+router.post("/", checkScope("reports:write"), (req, res) => {
 	const user = req.user || req.session?.user;
 	const { title, content } = req.body || {};
 
@@ -32,8 +33,8 @@ router.post("/", (req, res) => {
 	}
 });
 
-// GET /api/reports - Consultation de l'historique des rapports
-router.get("/", (req, res) => {
+// GET /api/reports - Consultation de l'historique des rapports (requiert le scope reports:read)
+router.get("/", checkScope("reports:read"), (req, res) => {
 	const user = req.user || req.session?.user;
 
 	try {

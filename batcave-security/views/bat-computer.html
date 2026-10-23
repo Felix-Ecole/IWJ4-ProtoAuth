@@ -58,9 +58,20 @@
 				<h1 id="welcomeTitle" class="text-2xl font-bold text-zinc-100">
 					Bienvenue dans la Batcave, agent __USERNAME__
 				</h1>
-				<p class="text-sm text-zinc-400 mt-1">
-					Badge de session actif. Système centralisé de sécurité et de gestion tactique.
-				</p>
+				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-2">
+					<p class="text-sm text-zinc-400">
+						Badge de session actif. Système centralisé de sécurité et de gestion tactique.
+					</p>
+					<div class="flex items-center gap-2">
+						<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-semibold">
+							<i class="fa-solid fa-shield-check text-emerald-400"></i>
+							<span>2FA TOTP Active</span>
+						</span>
+						<span id="userScopesBadge" class="hidden px-2.5 py-1 rounded bg-zinc-800 border border-zinc-700 text-amber-400 font-mono text-[11px]">
+							<!-- Scopes remplis par JS -->
+						</span>
+					</div>
+				</div>
 			</div>
 
 			<!-- Section de l'arsenal dynamique (Phase 3.2) -->
@@ -300,6 +311,15 @@
 					document.getElementById("badgeUsername").textContent = user.username;
 					document.getElementById("badgeRole").textContent = user.role;
 					document.getElementById("welcomeTitle").textContent = `Bienvenue dans la Batcave, agent ${user.username}`;
+
+					// Affichage des scopes OAuth2
+					if (user.scopes && user.scopes.length > 0) {
+						const scopesEl = document.getElementById("userScopesBadge");
+						if (scopesEl) {
+							scopesEl.textContent = "Scopes: " + user.scopes.join(", ");
+							scopesEl.classList.remove("hidden");
+						}
+					}
 
 					// Affichage conditionnel des fonctions ADMIN
 					if (user.role === "ADMIN") {

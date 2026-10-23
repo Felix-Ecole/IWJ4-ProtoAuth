@@ -1,8 +1,8 @@
-// Routeur pour l'arsenal tactique et les informations de profil de session
 const express = require("express");
 const db = require("../config/database");
 const { isAuthenticated, require2FA } = require("../middlewares/authCheck");
 const { checkRole } = require("../middlewares/checkRole");
+const { checkScope } = require("../middlewares/checkScope");
 
 const router = express.Router();
 
@@ -13,11 +13,12 @@ router.get("/me", isAuthenticated, (req, res) => {
 		id: user.id,
 		username: user.username,
 		role: user.role,
+		scopes: user.scopes || [],
 	});
 });
 
-// GET /api/secrets - Arsenal tactique de la Batcave
-router.get("/secrets", isAuthenticated, (req, res) => {
+// GET /api/secrets - Arsenal tactique de la Batcave (requiert le scope armory:weapons)
+router.get("/secrets", isAuthenticated, checkScope("armory:weapons"), (req, res) => {
 	const arsenal = [
 		{
 			nom: "Batmobile",
@@ -61,8 +62,13 @@ router.get("/admin/logs", isAuthenticated, checkRole("ADMIN"), (req, res) => {
 	}
 });
 
-// GET /api/batmobile/systems - Commandes tactiques Batmobile (Challenge 2 - 2FA requis)
-router.get("/batmobile/systems", isAuthenticated, require2FA, (req, res) => {
+// GET /api/batmobile/systems - Commandes tactiques Batmobile (Challenge 2 - 2FA requis & scope batmobile:control)
+router.get(
+	"/batmobile/systems",
+	isAuthenticated,
+	require2FA,
+	checkScope("batmobile:control"),
+	(req, res) => {
 	res.json({
 		status: "ACTIF",
 		agent: req.user.username,
