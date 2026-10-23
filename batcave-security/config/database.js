@@ -9,15 +9,29 @@ const db = new Database(dbPath);
 // Activation des clés étrangères dans SQLite
 db.pragma("foreign_keys = ON");
 
-// Création de la table des utilisateurs (Phase 1.0 & bonus rôle)
+// Création de la table des utilisateurs (Phase 1.0, bonus rôle & TP4 2FA)
 db.exec(`
 	CREATE TABLE IF NOT EXISTS users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT UNIQUE NOT NULL,
 		password TEXT NOT NULL,
-		role TEXT DEFAULT 'JUSTICIER'
+		role TEXT DEFAULT 'JUSTICIER',
+		two_factor_secret TEXT,
+		two_factor_enabled INTEGER DEFAULT 0
 	);
 `);
+
+// Migration incrémentale : ajout des colonnes 2FA si la table users préexistait (TP4 - Étape 3)
+try {
+	db.exec("ALTER TABLE users ADD COLUMN two_factor_secret TEXT;");
+} catch (e) {
+	// Colonne déjà existante
+}
+try {
+	db.exec("ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER DEFAULT 0;");
+} catch (e) {
+	// Colonne déjà existante
+}
 
 // Création de la table des rapports de mission (Phase 3.1)
 db.exec(`
