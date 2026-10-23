@@ -33,7 +33,7 @@
 				<span id="errorMessage">Identifiant ou mot de passe incorrect.</span>
 			</div>
 
-			<!-- Formulaire de connexion -->
+			<!-- Formulaire de connexion initial (Étape 1 : Identifiant + Mot de passe) -->
 			<form id="loginForm" action="/auth/login" method="POST" class="space-y-5">
 				<div>
 					<label for="username" class="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
@@ -82,6 +82,97 @@
 				</button>
 			</form>
 
+			<!-- Panneau Second Verrou : Validation TOTP 2FA (TP4 - Étape 7) -->
+			<div id="mfaStepPanel" class="hidden space-y-5">
+				<div class="p-3 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs flex items-center gap-2">
+					<i class="fa-solid fa-shield-halved text-amber-400"></i>
+					<span id="mfaMessage">Étape 1 validée. Veuillez saisir votre code TOTP à 6 chiffres.</span>
+				</div>
+
+				<form id="mfaForm" class="space-y-4">
+					<input type="hidden" id="mfaUsername" name="username" />
+					<div>
+						<label for="mfaCode" class="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
+							Code de Sécurité TOTP (6 chiffres)
+						</label>
+						<div class="relative">
+							<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-zinc-500 text-sm">
+								<i class="fa-solid fa-mobile-screen-button"></i>
+							</span>
+							<input
+								type="text"
+								id="mfaCode"
+								name="code"
+								maxlength="8"
+								required
+								autocomplete="one-time-code"
+								placeholder="123456"
+								class="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-base tracking-widest text-center font-mono text-amber-400 placeholder-zinc-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition" />
+						</div>
+					</div>
+
+					<button
+						type="submit"
+						id="mfaSubmitBtn"
+						class="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm rounded-lg transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10">
+						<i class="fa-solid fa-unlock-keyhole"></i>
+						<span>Valider le Double Facteur</span>
+					</button>
+
+					<button
+						type="button"
+						id="mfaCancelBtn"
+						class="w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded transition">
+						Annuler et recommencer
+					</button>
+				</form>
+			</div>
+
+			<!-- Panneau Enrôlement 2FA obligatoire (TP4 - Étapes 4 & 5) -->
+			<div id="enrollmentPanel" class="hidden space-y-4 text-center">
+				<div class="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-red-200 text-xs text-left flex items-center gap-2">
+					<i class="fa-solid fa-triangle-exclamation text-red-400"></i>
+					<span>Politique Zéro-Confiance : L'activation de la 2FA est requise pour accéder à la Batcave.</span>
+				</div>
+
+				<div class="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+					<p class="text-xs text-zinc-400 mb-3">
+						Scannez ce QR Code avec Google Authenticator ou une application TOTP compatible :
+					</p>
+					<div class="flex justify-center mb-3">
+						<img id="enrollmentQrCode" src="" alt="QR Code 2FA" class="w-48 h-48 rounded bg-white p-2 border border-zinc-700" />
+					</div>
+					<div class="text-[11px] text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 font-mono">
+						<span>Clé de secours : </span>
+						<strong id="enrollmentSecret" class="text-amber-400 select-all"></strong>
+					</div>
+				</div>
+
+				<form id="enrollmentConfirmForm" class="space-y-3">
+					<input type="hidden" id="enrollmentUsername" />
+					<div>
+						<label class="block text-xs font-semibold text-zinc-300 mb-1 text-left">
+							Saisissez le premier code à 6 chiffres affiché sur votre mobile :
+						</label>
+						<input
+							type="text"
+							id="enrollmentCode"
+							maxlength="8"
+							required
+							placeholder="Ex: 582910"
+							class="w-full bg-zinc-950 border border-zinc-700 rounded py-2 text-center text-sm font-mono text-amber-400 focus:outline-none focus:border-amber-400" />
+					</div>
+
+					<button
+						type="submit"
+						id="enrollmentConfirmBtn"
+						class="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm rounded-lg transition flex items-center justify-center gap-2">
+						<i class="fa-solid fa-circle-check"></i>
+						<span>Confirmer et Activer la 2FA</span>
+					</button>
+				</form>
+			</div>
+
 			<!-- Pied de page et lien inscription -->
 			<div class="mt-8 pt-4 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
 				<span>Nouvel agent ?</span>
@@ -92,7 +183,7 @@
 		</div>
 
 		<script>
-			// Affichage des erreurs transmises par l'URL ou soumission AJAX
+			// Affichage des erreurs transmises par l'URL
 			const params = new URLSearchParams(window.location.search);
 			if (params.has("error")) {
 				const errorBox = document.getElementById("errorBox");
@@ -101,18 +192,31 @@
 				errorBox.classList.remove("hidden");
 			}
 
-			// Interception de soumission pour retour visuel immédiat
-			const form = document.getElementById("loginForm");
-			form.addEventListener("submit", async (e) => {
-				e.preventDefault();
-				const submitBtn = document.getElementById("submitBtn");
-				const errorBox = document.getElementById("errorBox");
-				const errorMessage = document.getElementById("errorMessage");
+			const loginForm = document.getElementById("loginForm");
+			const mfaStepPanel = document.getElementById("mfaStepPanel");
+			const enrollmentPanel = document.getElementById("enrollmentPanel");
+			const errorBox = document.getElementById("errorBox");
+			const errorMessage = document.getElementById("errorMessage");
 
+			function showError(msg) {
+				errorMessage.textContent = msg;
+				errorBox.classList.remove("hidden");
+			}
+
+			function hideError() {
+				errorBox.classList.add("hidden");
+			}
+
+			// 1. Soumission du premier facteur (Identifiant + Mot de passe)
+			loginForm.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				hideError();
+
+				const submitBtn = document.getElementById("submitBtn");
 				submitBtn.disabled = true;
 				submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Vérification du badge...</span>';
 
-				const formData = new FormData(form);
+				const formData = new FormData(loginForm);
 				const payload = Object.fromEntries(formData.entries());
 
 				try {
@@ -126,17 +230,147 @@
 					});
 
 					const result = await response.json();
+
+					// Cas 1 : 2FA active, passage au second facteur
+					if (response.ok && result.requires2FA) {
+						loginForm.classList.add("hidden");
+						mfaStepPanel.classList.remove("hidden");
+						document.getElementById("mfaUsername").value = result.username;
+						document.getElementById("mfaCode").focus();
+						return;
+					}
+
+					// Cas 2 : 2FA non activée (Code 403 Forbidden Zéro-Confiance)
+					if (response.status === 403 && result.requiresEnrollment) {
+						loginForm.classList.add("hidden");
+						enrollmentPanel.classList.remove("hidden");
+						document.getElementById("enrollmentUsername").value = result.username;
+
+						// Initialisation automatique de l'enrôlement 2FA (QR Code)
+						const setupRes = await fetch("/api/auth/2fa/setup", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ username: result.username })
+						});
+						const setupData = await setupRes.json();
+						if (setupRes.ok && setupData.qrCode) {
+							document.getElementById("enrollmentQrCode").src = setupData.qrCode;
+							document.getElementById("enrollmentSecret").textContent = setupData.secret;
+						} else {
+							showError(setupData.error || "Erreur initialisation 2FA.");
+						}
+						return;
+					}
+
+					// Cas 3 : Ancien flux direct (si pas de 2FA configurée)
 					if (response.ok && result.redirect) {
 						window.location.href = result.redirect;
 					} else {
-						errorMessage.textContent = result.error || "Échec de connexion.";
-						errorBox.classList.remove("hidden");
+						showError(result.error || "Échec de connexion.");
 						submitBtn.disabled = false;
 						submitBtn.innerHTML = '<i class="fa-solid fa-key"></i><span>Valider l\'Accréditation</span>';
 					}
 				} catch (err) {
-					// En cas de problème réseau, soumission classique du formulaire
-					form.submit();
+					console.error("Erreur login :", err);
+					loginForm.submit();
+				}
+			});
+
+			// 2. Soumission du second facteur TOTP (Étape 7)
+			const mfaForm = document.getElementById("mfaForm");
+			mfaForm.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				hideError();
+
+				const mfaSubmitBtn = document.getElementById("mfaSubmitBtn");
+				mfaSubmitBtn.disabled = true;
+				mfaSubmitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Vérification TOTP...</span>';
+
+				const username = document.getElementById("mfaUsername").value;
+				const code = document.getElementById("mfaCode").value;
+
+				try {
+					const res = await fetch("/api/verify-2fa", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"Accept": "application/json"
+						},
+						body: JSON.stringify({ username, code })
+					});
+
+					const data = await res.json();
+					if (res.ok && (data.redirect || data.success)) {
+						window.location.href = data.redirect || "/bat-computer";
+					} else {
+						showError(data.error || "Code TOTP incorrect ou expiré.");
+						mfaSubmitBtn.disabled = false;
+						mfaSubmitBtn.innerHTML = '<i class="fa-solid fa-unlock-keyhole"></i><span>Valider le Double Facteur</span>';
+					}
+				} catch (err) {
+					console.error("Erreur verify-2fa :", err);
+					showError("Erreur réseau lors de la validation 2FA.");
+					mfaSubmitBtn.disabled = false;
+					mfaSubmitBtn.innerHTML = '<i class="fa-solid fa-unlock-keyhole"></i><span>Valider le Double Facteur</span>';
+				}
+			});
+
+			// Bouton Annuler du second facteur
+			document.getElementById("mfaCancelBtn").addEventListener("click", () => {
+				mfaStepPanel.classList.add("hidden");
+				loginForm.classList.remove("hidden");
+				document.getElementById("submitBtn").disabled = false;
+				document.getElementById("submitBtn").innerHTML = '<i class="fa-solid fa-key"></i><span>Valider l\'Accréditation</span>';
+				hideError();
+			});
+
+			// 3. Confirmation de l'enrôlement 2FA (Étape 5)
+			const enrollmentConfirmForm = document.getElementById("enrollmentConfirmForm");
+			enrollmentConfirmForm.addEventListener("submit", async (e) => {
+				e.preventDefault();
+				hideError();
+
+				const confirmBtn = document.getElementById("enrollmentConfirmBtn");
+				confirmBtn.disabled = true;
+				confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Synchronisation...</span>';
+
+				const username = document.getElementById("enrollmentUsername").value;
+				const code = document.getElementById("enrollmentCode").value;
+
+				try {
+					const res = await fetch("/api/auth/2fa/confirm", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ username, code })
+					});
+
+					const data = await res.json();
+					if (res.ok && data.success) {
+						// 2FA activée avec succès, passage direct à la validation pour connexion
+						const verifyRes = await fetch("/api/verify-2fa", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ username, code })
+						});
+						const verifyData = await verifyRes.json();
+						if (verifyRes.ok) {
+							window.location.href = verifyData.redirect || "/bat-computer";
+						} else {
+							// Revenir à l'écran de login
+							enrollmentPanel.classList.add("hidden");
+							loginForm.classList.remove("hidden");
+							showError("2FA activée. Veuillez vous reconnecter avec votre code TOTP.");
+						}
+					} else {
+						showError(data.error || "Code invalide. Vérifiez l'heure de votre mobile.");
+						confirmBtn.disabled = false;
+						confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Confirmer et Activer la 2FA</span>';
+					}
+				} catch (err) {
+					console.error("Erreur confirm 2FA :", err);
+					showError("Erreur serveur lors de la synchronisation 2FA.");
+					confirmBtn.disabled = false;
+					confirmBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Confirmer et Activer la 2FA</span>';
 				}
 			});
 		</script>
