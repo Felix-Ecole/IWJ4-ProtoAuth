@@ -248,5 +248,80 @@ La route `POST /api/auth/change-password` impose une politique de sécurité str
 
 ---
 
+## 6. TP4 - Opération Arkham Citadel (Mode Zéro-Confiance & 2FA TOTP)
+
+Face aux attaques massives du Joker et du Sphinx, l'architecture du Bat-Ordinateur a été blindée en mode **Zéro-Confiance** :
+- **En-têtes HTTP de sécurité** injectés globalement via **Helmet** (`Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`).
+- **Verrouillage strict des cookies** (`httpOnly: true`, `sameSite: 'strict'`) et ajustement de l'espérance de vie du jeton d'accès à **15 minutes**.
+- **Authentification Double Facteur (2FA TOTP)** obligatoire basée sur la norme RFC 6238 via `@otplib/preset-v11` et génération d'URI `otpauth://` avec QR Code Base64 via `qrcode`.
+- **Politique Zéro-Confiance** sur `/login` : refus catégorique d'accès (code `403 Forbidden`) tant que la 2FA n'est pas activée, et arrêt à l'étape 1 (`requires2FA: true`) sans distribution préalable de jeton.
+- **Validation finale 2FA (`/api/verify-2fa`)** délivrant les cookies de session uniquement après vérification mathématique du code à 6 chiffres.
+- **Challenge 1 : Détection de vol et réutilisation de jetons de rafraîchissement (*Reuse Detection*)** avec purge immédiate de toutes les sessions actives.
+- **Challenge 2 : Gestion fine des privilèges par Scopes OAuth2** (`checkScope`) protégeant les systèmes critiques (Batmobile, armurerie, rapports).
+- **Architecture modulaire du routeur d'authentification** : découplage propre de `routes/auth.js` en sous-modules spécialisés (`routes/auth/login.js`, `twoFactor.js`, `tokens.js`, `password.js`, `helpers.js`) pour garantir une lisibilité et une maintenabilité optimales.
+
+### 6.1 Diagramme de Flux d'Authentification Zéro-Confiance (MFA / 2FA)
+
+```mermaid
+sequenceDiagram
+%%{init: {'theme': 'default'}}%%
+    participant Client as Client (Navigateur / authFetch)
+    participant API as API (Express / Middlewares)
+    participant DB as DB (SQLite)
+
+    Note over Client,DB: Scénario 1 : Première Connexion & Enrôlement 2FA Obligatoire (Zéro-Confiance)
+    Client->>API: POST /auth/login {username, password}
+    API->>DB: Vérification identifiants & statut 2FA
+    DB-->>API: 2FA non active (two_factor_enabled = 0)
+    API-->>Client: 403 Forbidden {requiresEnrollment: true} (Aucun jeton émis)
+    Client->>API: POST /api/auth/2fa/setup {username}
+    API->>API: Génération secret TOTP unique & QR Code Base64
+    API->>DB: Sauvegarde secret temporaire (two_factor_enabled = 0)
+    API-->>Client: 200 OK {secret, qrCode}
+    Client->>API: POST /api/auth/2fa/confirm {username, code: "123456"}
+    API->>API: Contrôle mathématique du code TOTP (otplib)
+    API->>DB: UPDATE users SET two_factor_enabled = 1
+    API-->>Client: 200 OK {success: true, two_factor_enabled: 1}
+
+    Note over Client,DB: Scénario 2 : Connexion Récurrente avec 2FA Active (Double Verrou)
+    Client->>API: POST /auth/login {username, password}
+    API->>DB: Validation mot de passe & vérification 2FA
+    DB-->>API: 2FA active (two_factor_enabled = 1)
+    API-->>Client: 200 OK {requires2FA: true} (Arrêt étape 1, aucun jeton émis)
+    Client->>API: POST /api/verify-2fa {username, code: "654321"}
+    API->>API: Validation cryptographique du code TOTP
+    API->>DB: Enregistrement refreshToken opaque
+    API-->>Client: 200 OK + Cookies {token (15m), refreshToken (7j)}
+
+    Note over Client,DB: Scénario 3 : Contrôle Fin des Privilèges par Scopes OAuth2
+    Client->>API: GET /api/batmobile/systems (Cookie token)
+    API->>API: Vérification présence du scope 'batmobile:control'
+    alt Scope présent (ex: Batman)
+        API-->>Client: 200 OK {status: "ACTIF", systems: {...}}
+    else Scope manquant (ex: Nightwing)
+        API-->>Client: 403 Forbidden {code: "INSUFFICIENT_SCOPE"}
+    end
+```
+
+### 6.2 Tableau Récapitulatif des Endpoints (TP4)
+
+| Méthode | Route | Protection requise | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/login` | Public | Étape 1 : vérification mot de passe, rejet 403 si pas de 2FA, ou renvoi `requires2FA: true` |
+| `POST` | `/api/auth/2fa/setup` | Public / Session | Initialisation 2FA, génération du secret TOTP et du QR Code Base64 |
+| `POST` | `/api/auth/2fa/confirm` | Public / Session | Confirmation du premier code mobile et activation en base (`two_factor_enabled = 1`) |
+| `POST` | `/api/verify-2fa` | Public / Session | Étape 2 : validation du code TOTP et émission des cookies `token` (15m) et `refreshToken` (7j) |
+| `POST` | `/api/auth/refresh` | Cookie `refreshToken` | Rotation des jetons et détection de rejeu avec révocation en cascade |
+| `POST` | `/auth/logout` | Cookie `refreshToken` | Révocation définitive en BDD et purge des cookies HTTP |
+| `GET` | `/api/me` | JWT (`checkJWT`) | Restitution du profil et de la liste des scopes OAuth2 de l'agent |
+| `GET` | `/api/secrets` | Scope `armory:weapons` | Consultation de l'arsenal tactique (contrôle par scope) |
+| `GET` | `/api/batmobile/systems` | Scope `batmobile:control` | Commandes de la Batmobile (2FA certifié et scope requis) |
+| `GET` | `/api/reports` | Scope `reports:read` | Consultation des rapports de mission selon les privilèges |
+| `POST` | `/api/reports` | Scope `reports:write` | Enregistrement d'un nouveau rapport de mission sécurisé |
+| `GET` | `/bat-computer` | JWT (`checkJWT`) | Console centrale d'administration du Bat-Ordinateur |
+
+---
+
 > [!NOTE]
 > Pour les instructions d'installation, de lancement et les procédures de validation (cURL, Postman, navigateur), consultez le document racine [`DEVELOPMENT.md`](../DEVELOPMENT.md).
+

@@ -6,6 +6,24 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/)
 
 ---
 
+## [4.0.0] - 2026-10-23
+
+### Ajouté
+- Injection globale du middleware de sécurité **Helmet** avec politique CSP stricte (`Content-Security-Policy`, `nosniff`, `SAMEORIGIN`) (Étape 1).
+- Verrouillage des cookies de session (`httpOnly: true`, `sameSite: 'strict'`) et ajustement de l'espérance de vie du jeton d'accès à **15 minutes** (Étape 2).
+- Migration incrémentale du schéma SQLite `users` avec ajout des colonnes `two_factor_secret` et `two_factor_enabled` (Étape 3).
+- Route d'initialisation de l'enrôlement 2FA `POST /api/auth/2fa/setup` avec génération du secret TOTP, création de l'URI standardisée `otpauth://` et rendu QR Code en Base64 via `qrcode` (Étape 4).
+- Route de confirmation 2FA `POST /api/auth/2fa/confirm` validant mathématiquement le premier code à 6 chiffres via `@otplib/preset-v11` et activant `two_factor_enabled = 1` en BDD (Étape 5).
+- Contrôleur d'authentification en mode Zéro-Confiance sur `POST /auth/login` bloquant à 403 Forbidden les comptes sans 2FA et interrompant le flux avec `requires2FA: true` sans émission préalable de jeton (Étape 6).
+- Route de validation finale du double verrou `POST /api/verify-2fa` contrôlant le code TOTP avant délivrance des cookies sécurisés `token` et `refreshToken` (Étape 7).
+- Interface interactive de connexion et d'enrôlement 2FA intégrée dans `login.html` avec scan de QR Code et saisie directe TOTP.
+- Détection de vol et réutilisation frauduleuse de refresh tokens (*Reuse Detection*) avec révocation globale de toutes les sessions actives en base SQLite (Challenge 1).
+- Middleware de contrôle d'accès fin par scopes OAuth2 `checkScope(requiredScope)` protégeant les systèmes critiques de la Batcave (Batmobile, armurerie, rapports) (Challenge 2).
+- Banc d'essais automatisé validant 37 assertions couvrant 100% des exigences du TP4 (`robots/test_tp4.js`).
+- Refactorisation modulaire du routeur d'authentification `routes/auth.js` découpé en modules dédiés (`routes/auth/login.js`, `twoFactor.js`, `tokens.js`, `password.js`, `helpers.js`).
+
+---
+
 ## [3.0.0] - 2026-09-26
 
 ### Ajouté

@@ -189,9 +189,57 @@ curl -i -H "Authorization: Bearer <VOTRE_JWT>" http://localhost:3000/api/suit/st
 
 ---
 
-## 6. Conventions Git et Livrables
+## 6. Procédures de Validation et Recette (TP4)
+
+La validation du TP4 repose sur le mode **Zéro-Confiance**, le durcissement applicatif via **Helmet** et la barrière **2FA TOTP (Google Authenticator / RFC 6238)**.
+
+### Méthode 1 : Banc d'Essais Automatisé (100% de couverture)
+Le banc d'essais teste 37 assertions couvrant l'ensemble des scénarios critiques :
+```bash
+node robots/test_tp4.js
+```
+
+### Méthode 2 : Ligne de commande cURL (Flux Zéro-Confiance & Double Facteur)
+```bash
+# 1. Vérification des en-têtes Helmet (nosniff, SAMEORIGIN, CSP)
+curl -i http://localhost:3000/auth/login
+
+# 2. Tentative de connexion sans 2FA (Rejet 403 Forbidden immédiat)
+curl -i -X POST http://localhost:3000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"nouvel_agent","password":"ValidPassword123!"}'
+
+# 3. Initialisation de l'enrôlement 2FA (génération du secret TOTP et du QR Code)
+curl -i -X POST http://localhost:3000/api/auth/2fa/setup \
+     -H "Content-Type: application/json" \
+     -d '{"username":"nouvel_agent"}'
+
+# 4. Confirmation de la 2FA avec le premier code TOTP à 6 chiffres
+curl -i -X POST http://localhost:3000/api/auth/2fa/confirm \
+     -H "Content-Type: application/json" \
+     -d '{"username":"nouvel_agent","code":"123456"}'
+
+# 5. Connexion Étape 1 : renvoi de requires2FA: true sans cookie token
+curl -i -X POST http://localhost:3000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"nouvel_agent","password":"ValidPassword123!"}'
+
+# 6. Validation Finale Étape 2 : émission des cookies token (15m) et refreshToken (7j)
+curl -i -c cookies_tp4.txt -X POST http://localhost:3000/api/verify-2fa \
+     -H "Content-Type: application/json" \
+     -d '{"username":"nouvel_agent","code":"654321"}'
+
+# 7. Contrôle fin des privilèges par Scopes OAuth2
+# Accès refusé si le scope requis est absent du jeton (403 Forbidden INSUFFICIENT_SCOPE)
+curl -i -b cookies_tp4.txt http://localhost:3000/api/batmobile/systems
+```
+
+---
+
+## 7. Conventions Git et Livrables
 
 - **Branche principale** : `master`
-- **Branches de travail** : `tp<numero>-<theme>` (ex. : `tp3-systeme-jetons`)
-- **Releases** : Tags annotés SemVer (`v1.0.0`, `v2.0.0`, `v3.0.0`)
+- **Branches de travail** : `tp<numero>-<theme>` (ex. : `tp4-operation-arkham-citadel`)
+- **Releases** : Tags annotés SemVer (`v1.0.0`, `v2.0.0`, `v3.0.0`, `v4.0.0`)
 - **Documentation** : Mise à jour conjointe du `README.md` racine, du `README.md` du TP et du `CHANGELOG.md`.
+
